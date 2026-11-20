@@ -55,6 +55,10 @@ class BaseMap:
         self.base_pts = np.vstack(base_pts).astype(np.float32)
         self.H, _ = cv2.findHomography(self.img_pts, self.base_pts, 0)
         self.H_inv = np.linalg.inv(self.H)
+        # how well the saved marker layout fits what the camera sees (mm). Large = the markers are
+        # not where the settings say (e.g. a different sheet), and every measurement would be wrong.
+        mapped = cv2.perspectiveTransform(self.img_pts.reshape(-1, 1, 2), self.H).reshape(-1, 2)
+        self.layout_error_mm = float(np.mean(np.linalg.norm(mapped - self.base_pts, axis=1)))
         self.calib = calib
         self.found = found
         sides = []
@@ -94,3 +98,29 @@ class BaseMap:
         centers = np.array([self.found[i].mean(axis=0) for i in BASE_IDS], np.float32)
         hull = cv2.convexHull(centers)
         return hull.reshape(-1, 2)
+
+
+def learn_layout(detections, marker_size_mm, calib=None):
+    """Works out where markers 1-3 are relative to marker 0, from what the camera sees.
+    `detections` is a list of detect() results (several frames, all 4 markers visible).
+    Marker 0's own square (known size) defines millimetres and directions on the base plane;
+    the other centres are mapped into it and averaged over the frames.
+    Returns ({"0": [0, 0], "1": [x, y], ...}, spread_mm)."""
+    ref = square_corners_mm((0.0, 0.0), marker_size_mm)
+    per_id = {i: [] for i in BASE_IDS}
+    for found in detections:
+        if any(i not in found for i in BASE_IDS):
+            continue
+        H, _ = cv2.findHomography(undistort_px(found[0], calib), ref, 0)
+        for i in BASE_IDS:
+            c = undistort_px(found[i], calib).reshape(-1, 1, 2)
+            per_id[i].append(cv2.perspectiveTransform(c, H).reshape(-1, 2).mean(axis=0))
+    if not per_id[0]:
+        raise LookupError("markers")
+    centers, spread = {}, 0.0
+    for i in BASE_IDS:
+        arr = np.array(per_id[i])
+        med = np.median(arr, axis=0)
+        centers[i] = med
+        spread = max(spread, float(np.max(np.linalg.norm(arr - med, axis=1))))
+    return {str(i): [round(float(centers[i][0]), 2), round(float(centers[i][1]), 2)] for i in BASE_IDS}, spread

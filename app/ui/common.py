@@ -221,6 +221,8 @@ class CameraView(QWidget):
         self.image = None
         self.markers = []
         self.contour = None
+        self.dots = []            # e.g. checkerboard corners found right now
+        self.ghosts = []          # faint outlines, e.g. boards already captured
         self.badge = ""
         self.right_badge = ""
         self.message = ""
@@ -319,6 +321,18 @@ class CameraView(QWidget):
         if self.contour is not None and len(self.contour) > 2:
             p.setPen(QPen(accent, 3))
             p.drawPolygon(poly(self.contour))
+        if self.ghosts:
+            faint = QColor(self.p["ok"])
+            faint.setAlpha(110)
+            p.setPen(QPen(faint, 1.5))
+            for g in self.ghosts:
+                p.drawPolygon(poly(g))
+        if self.dots:
+            p.setPen(Qt.PenStyle.NoPen)
+            p.setBrush(QColor(self.p["ok"]))
+            for x, y in self.dots:
+                p.drawEllipse(QPointF(r.x() + x * s, r.y() + y * s), 3, 3)
+            p.setBrush(Qt.BrushStyle.NoBrush)
         if self.badge:
             self._badge(p, self.badge, r.x() + 12, r.y() + 12, dot="#FF5C5C")
         if self.right_badge:

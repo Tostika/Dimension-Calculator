@@ -158,6 +158,13 @@ def run_pages():
     cp.fill_lens_rows()
     cp.update_chips()
     cp.on_check_base()
+    cp.on_learn_layout()
+    print("  layout after learning:", s.get("base_marker_centers_mm"))
+    cp.session = __import__("app.vision.calibration", fromlist=["x"]).CalibrationSession()
+    w._last_preview = cv2.resize(cam.demo.frame(), (1280, 720))
+    cp.look_for_board()
+    cp._update_session()
+    cp.session = None
     cam.demo.mode = "plate_empty"
     cp.on_zero()
     cam.demo.mode = "item"

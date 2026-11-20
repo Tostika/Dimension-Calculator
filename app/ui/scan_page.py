@@ -369,7 +369,10 @@ class ScanPage(QWidget):
 
     def update_measured_height(self):
         h = self.main.live_height_mm
-        self.z_measured.setText(self.t("height_measured", cm=f"{h / 10:.1f}") if h else self.t("height_unknown"))
+        if not self.main.live_layout_ok:
+            self.z_measured.setText(self.t("layout_mismatch"))
+        else:
+            self.z_measured.setText(self.t("height_measured", cm=f"{h / 10:.1f}") if h else self.t("height_unknown"))
 
     def on_set_height(self):
         cm = int(self.z_spin.value())

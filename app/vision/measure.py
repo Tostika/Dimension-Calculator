@@ -20,9 +20,12 @@ def build_base_map(frame_bgr, settings, calib):
     gray = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2GRAY)
     found = detect(gray)
     try:
-        return BaseMap(found, settings.get("base_marker_centers_mm"), settings.get("marker_size_mm"), calib)
+        bm = BaseMap(found, settings.get("base_marker_centers_mm"), settings.get("marker_size_mm"), calib)
     except LookupError:
         raise MeasureError("err_no_markers")
+    if bm.layout_error_mm > max(1.5, 0.05 * float(settings.get("marker_size_mm"))):
+        raise MeasureError("err_layout")
+    return bm
 
 
 def light_only(frame_on, frame_off):
@@ -93,6 +96,8 @@ def measure_outline(frame_on, frame_off, base_map, height_mm=None, fallback_came
     pts_mm = base_map.to_mm(contour_px)
     pts_mm = correct_for_height(pts_mm, base_map, height_mm, fallback_camera_height_mm)
     length, width = size_from_outline(pts_mm)
+    if not (np.isfinite(length) and np.isfinite(width)) or length > 1000:
+        raise MeasureError("err_layout")
     return {"contour_px": contour_px, "outline_mm": simplify(pts_mm), "length": float(length), "width": float(width)}
 
 
