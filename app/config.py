@@ -14,7 +14,7 @@ def data_dir():
     return path
 
 
-SETTINGS_VERSION = 2
+SETTINGS_VERSION = 3
 
 DEFAULTS = {
     "settings_version": SETTINGS_VERSION,
@@ -61,9 +61,11 @@ class Settings:
     def __init__(self, path=None):
         self.path = path or os.path.join(data_dir(), "settings.json")
         self.data = deepcopy(DEFAULTS)
-        self.load()
-        if int(self.data.get("settings_version", 1)) < SETTINGS_VERSION:
-            # v0.1.0/v0.1.1 locked focus and exposure by default, which can give a blurry or dark picture
+        stored_version = self.load()
+        if stored_version < 3:
+            # v0.1.0/v0.1.1 saved "lock focus" and "lock exposure" as on, which forces the camera to a
+            # dark manual exposure, manual white balance and a fixed (blurry) focus. Switch them off.
+            # (The v2 version of this fix never ran: it read the version from the defaults.)
             self.data["lock_focus"] = False
             self.data["lock_exposure"] = False
             self.data["settings_version"] = SETTINGS_VERSION
@@ -72,14 +74,17 @@ class Settings:
             self.data["export_folder"] = os.path.join(data_dir(), "exports")
 
     def load(self):
+        """Reads settings.json. Returns the settings version the file was saved with
+        (1 for files from before versions existed, the current one if there is no file yet)."""
         try:
             with open(self.path, "r", encoding="utf-8") as f:
                 stored = json.load(f)
-            for k, v in stored.items():
-                if k in DEFAULTS:
-                    self.data[k] = v
         except (FileNotFoundError, json.JSONDecodeError):
-            pass
+            return SETTINGS_VERSION
+        for k, v in stored.items():
+            if k in DEFAULTS:
+                self.data[k] = v
+        return int(stored.get("settings_version", 1))
 
     def save(self):
         tmp = self.path + ".tmp"

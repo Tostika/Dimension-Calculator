@@ -65,8 +65,10 @@ class MainWindow(QMainWindow):
         old.preview.disconnect(self.on_preview)
         old.status.disconnect(self.on_camera_status)
         old._running = False
-        self._old_cameras.append(old)        # keep it alive until its thread has really stopped
-        old.finished.connect(lambda: self._old_cameras.remove(old) if old in self._old_cameras else None)
+        old.wait(5000)                       # let it release the camera before the new one opens it
+        self._old_cameras.append(old)        # never delete a thread object here: that crashed the app
+        self.camera_ok = False
+        self.camera_changed.emit()
         self.start_camera()
 
     def on_camera_status(self, opened):
