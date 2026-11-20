@@ -21,6 +21,7 @@ DEFAULTS = {
     "scan_layout": "side",       # "side" or "wide"
     "corners": "round",          # "round" or "sharp"
     "camera_index": 0,
+    "demo_camera": False,        # show a drawn test scene when no camera is connected
     "resolution": "4k",          # "4k", "1440", "1080"
     "lock_focus": True,
     "focus_value": 30,           # manual focus value per camera height is stored in calibration

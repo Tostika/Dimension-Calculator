@@ -98,9 +98,10 @@ QLabel {{ background: transparent; }}
 QLabel#AppTitle {{ font-size: 16px; font-weight: 700; }}
 QLabel#Muted, QLabel#Hint {{ color: {p['muted']}; }}
 QLabel#Hint {{ font-size: 12px; }}
-QLabel#PageTitle {{ font-size: 24px; font-weight: 700; }}
+QLabel#PageTitle {{ font-size: 21px; font-weight: 700; }}
 QLabel#CardTitle {{ font-size: 16px; font-weight: 700; }}
 QLabel#SectionTitle {{ font-size: 13px; font-weight: 600; color: {p['muted']}; }}
+QLabel#HugeValue {{ font-family: Consolas; font-size: 32px; font-weight: 700; }}
 QLabel#BigValue {{ font-family: Consolas; font-size: 26px; font-weight: 700; }}
 QLabel#MidValue {{ font-family: Consolas; font-size: 20px; font-weight: 700; }}
 QLabel#Mono {{ font-family: Consolas; color: {p['muted']}; }}
@@ -118,7 +119,7 @@ QFrame#StepCard {{ background: {p['surface']}; border: 1px solid {p['border']}; 
 QFrame#StepCard[active="true"] {{ border: 2px solid {p['accent']}; }}
 QFrame#Inset {{ background: {p['bg']}; border: 1px solid {p['border']}; border-radius: {p['rs']}px; }}
 
-QPushButton {{ min-height: 42px; padding: 0 14px; border-radius: {p['rs']}px; border: 1px solid {p['border']}; background: transparent; color: {p['text']}; }}
+QPushButton {{ min-height: 40px; padding: 0 10px; border-radius: {p['rs']}px; border: 1px solid {p['border']}; background: transparent; color: {p['text']}; }}
 QPushButton:hover {{ background: {p['accent_soft']}; }}
 QPushButton:disabled {{ color: {p['muted']}; border-color: {p['border']}; }}
 QPushButton#Primary {{ background: {p['accent']}; color: {p['on_accent']}; border: 0; font-weight: 700; min-height: 48px; }}

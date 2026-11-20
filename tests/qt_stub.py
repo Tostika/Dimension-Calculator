@@ -55,6 +55,11 @@ class Dummy(metaclass=_Meta):
         return ""
 
 
+# methods that the app calls through super(), which skips __getattr__
+for _name in ("setText", "resizeEvent", "showEvent", "closeEvent", "paintEvent", "setStyleSheet"):
+    setattr(Dummy, _name, lambda self, *a, **k: Dummy())
+
+
 def _module(name):
     m = types.ModuleType(name)
 

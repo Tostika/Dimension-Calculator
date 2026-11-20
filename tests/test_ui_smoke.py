@@ -101,7 +101,7 @@ def run_pages():
     cam.demo.mode = "empty"
     sp.refresh = lambda: None
     sp.capture_outline()
-    print("error message key shown:", sp.message.text() is not None)
+    print("error shown on camera view:", sp.view.message)
 
     class FakeItem:
         def __init__(self):

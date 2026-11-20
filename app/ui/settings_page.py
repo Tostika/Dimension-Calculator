@@ -245,6 +245,10 @@ class SettingsPage(QWidget):
             cb.setChecked(bool(self.s.get(key)))
             cb.toggled.connect(lambda v, k=key: self._camera_setting(k, bool(v)))
             lay.addWidget(cb)
+        demo = QCheckBox(self.t("demo_camera_setting"))
+        demo.setChecked(bool(self.s.get("demo_camera")))
+        demo.toggled.connect(lambda v: self.s.set("demo_camera", bool(v)))   # the camera thread picks it up live
+        lay.addWidget(demo)
         return c
 
     def _camera_setting(self, key, value):

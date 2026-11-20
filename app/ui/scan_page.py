@@ -35,8 +35,9 @@ class ScanPage(QWidget):
         for i in range(3):
             f = QFrame()
             f.setObjectName("StepCard")
+            f.setFixedHeight(74)
             lay = QVBoxLayout(f)
-            lay.setContentsMargins(16, 12, 16, 12)
+            lay.setContentsMargins(14, 10, 14, 10)
             lay.setSpacing(2)
             top, bottom = label("", "Hint"), label("", wrap=True)
             bottom.setStyleSheet("font-weight: 600;")
@@ -46,13 +47,11 @@ class ScanPage(QWidget):
             self.step_cards.append((f, top, bottom))
         outer.addLayout(steps)
 
-        self.message = label("", "Message", wrap=True)
-        self.message.hide()
-        outer.addWidget(self.message)
-
         # shared widgets
-        self.view = CameraView(self.p["accent"], self.p["r"])
+        self.view = CameraView(self.p, self.p["r"])
         self.view.badge = self.t("live")
+        self.view.offline_title = self.t("no_camera")
+        self.view.offline_hint = self.t("no_camera_hint")
         self.val = {}
         self.primary = button("", "Primary", self.on_primary)
         self.export_btn = button(self.t("export_dxf"), on_click=self.on_export)
@@ -68,7 +67,7 @@ class ScanPage(QWidget):
         self._led_timer.timeout.connect(lambda: self.main.set_led(self.led_slider.value()))
         self.z_buttons = []
         for z in self.s.get("z_presets_mm"):
-            b = button(f"{z / 10:g} {self.t('cm')}", "Toggle", checkable=True)
+            b = button(f"{z / 10:g}", "Toggle", checkable=True)
             b.setChecked(int(z) == int(self.s.get("z_preset_mm")))
             b.clicked.connect(lambda _=False, zz=z: self.on_z(zz))
             self.z_buttons.append((z, b))
@@ -80,6 +79,8 @@ class ScanPage(QWidget):
             outer.addWidget(self._side(), 1)
 
         main.preview_ready.connect(self.on_preview)
+        main.camera_changed.connect(self.on_camera_changed)
+        self.on_camera_changed()
         self.refresh()
 
     # ---------- layouts ----------
@@ -89,9 +90,16 @@ class ScanPage(QWidget):
         g.setContentsMargins(0, 0, 0, 0)
         g.setHorizontalSpacing(18)
         g.setVerticalSpacing(2)
+        if big:      # one value per line, large, in the side panel
+            for n, key in enumerate(("length", "width", "height")):
+                g.addWidget(label(self.t(key), "Hint"), n * 2, 0)
+                v = label(self.t("empty_value"), "HugeValue")
+                g.addWidget(v, n * 2 + 1, 0)
+                self.val[key] = v
+            return w
         for col, key in enumerate(("length", "width", "height")):
             g.addWidget(label(self.t(key), "Hint"), 0, col)
-            v = label(self.t("empty_value"), "BigValue" if big else "MidValue")
+            v = label(self.t("empty_value"), "MidValue")
             g.addWidget(v, 1, col)
             self.val[key] = v
         return w
@@ -125,37 +133,45 @@ class ScanPage(QWidget):
         lay.addWidget(self.home_btn, 1)
         return w
 
+    def _controls_row(self):
+        """LED card and camera-height card side by side (under the camera)."""
+        row = QHBoxLayout()
+        row.setSpacing(12)
+        c, cl = card(spacing=8)
+        cl.setContentsMargins(14, 12, 14, 12)
+        cl.addWidget(self._light_block())
+        cl.addWidget(self._ambient_box())
+        row.addWidget(c, 1)
+        c, cl = card(spacing=8)
+        cl.setContentsMargins(14, 12, 14, 12)
+        cl.addWidget(label(self.t("camera_height_cm")))
+        cl.addWidget(self._z_row())
+        row.addWidget(c, 1)
+        return row
+
     def _side(self):
         w = QWidget()
         lay = QHBoxLayout(w)
         lay.setContentsMargins(0, 0, 0, 0)
         lay.setSpacing(16)
-        lay.addWidget(self.view, 3)
-        col = QVBoxLayout()
-        col.setSpacing(12)
-        c, cl = card()
+        left = QVBoxLayout()
+        left.setSpacing(12)
+        self.view.align_top = True
+        left.addWidget(self.view, 1)
+        left.addLayout(self._controls_row())
+        lay.addLayout(left, 1)
+        c, cl = card(spacing=12)
+        c.setFixedWidth(310)
         cl.addWidget(label(self.t("result_mm"), "SectionTitle"))
         cl.addWidget(self._result_block())
+        cl.addStretch(1)
         cl.addWidget(self.primary)
         row = QHBoxLayout()
+        row.setSpacing(8)
         row.addWidget(self.export_btn)
         row.addWidget(self.new_btn)
         cl.addLayout(row)
-        col.addWidget(c)
-        c, cl = card()
-        cl.addWidget(self._light_block())
-        cl.addWidget(self._ambient_box())
-        col.addWidget(c)
-        c, cl = card()
-        cl.addWidget(label(self.t("camera_height")))
-        cl.addWidget(self._z_row())
-        col.addWidget(c)
-        col.addStretch(1)
-        side = QWidget()
-        side.setLayout(col)
-        side.setMinimumWidth(320)
-        side.setMaximumWidth(420)
-        lay.addWidget(side, 1)
+        lay.addWidget(c)
         return w
 
     def _wide(self):
@@ -168,25 +184,23 @@ class ScanPage(QWidget):
         g.setContentsMargins(0, 0, 0, 0)
         g.addWidget(self.view, 0, 0)
         hud, hl = card(spacing=4)
-        hl.setContentsMargins(16, 12, 16, 12)
+        hl.setContentsMargins(16, 10, 16, 10)
         hl.addWidget(self._result_block(big=False))
         g.addWidget(hud, 0, 0, Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignRight)
-        g.setContentsMargins(0, 0, 0, 0)
         lay.addWidget(holder, 1)
         dock = QHBoxLayout()
         dock.setSpacing(10)
         c, cl = card()
-        cl.setContentsMargins(16, 10, 16, 10)
+        cl.setContentsMargins(14, 8, 14, 8)
         cl.addWidget(self._light_block())
-        dock.addWidget(c, 2)
+        dock.addWidget(c, 3)
         c, cl = card()
-        cl.setContentsMargins(16, 10, 16, 10)
+        cl.setContentsMargins(14, 8, 14, 8)
         cl.addWidget(self._z_row())
         dock.addWidget(c, 3)
-        self.primary.setMinimumHeight(60)
-        dock.addWidget(self.primary, 2)
-        dock.addWidget(self.export_btn, 1)
-        dock.addWidget(self.new_btn, 1)
+        for b, stretch in ((self.primary, 3), (self.export_btn, 2), (self.new_btn, 2)):
+            b.setMinimumHeight(64)
+            dock.addWidget(b, stretch)
         lay.addLayout(dock)
         return w
 
@@ -210,7 +224,8 @@ class ScanPage(QWidget):
             f.setProperty("active", "true" if active else "false")
             repolish(f)
         self.primary.setText({1: self.t("capture_outline"), 2: self.t("capture_height"), 3: self.t("save")}[self.step])
-        self.primary.setEnabled(not self.busy)
+        has_camera = self.main.camera_ok or self.main.camera_demo
+        self.primary.setEnabled(not self.busy and (has_camera or self.step == 3))
         self.export_btn.setEnabled(self.result is not None and not self.busy)
         for z, b in self.z_buttons:
             b.setEnabled(not self.busy)
@@ -224,10 +239,9 @@ class ScanPage(QWidget):
             self.main.camera.demo.mode = "plate" if self.step == 2 else "item"
 
     def show_message(self, text, error=False):
-        self.message.setText(text)
-        self.message.setObjectName("MessageError" if error else "Message")
-        repolish(self.message)
-        self.message.setVisible(bool(text))
+        self.view.message = text or ""
+        self.view.message_error = error
+        self.view.update()
 
     def reset(self):
         self.step, self.frames, self.base_map, self.result, self.height = 1, None, None, None, None
@@ -236,9 +250,17 @@ class ScanPage(QWidget):
         self.refresh()
 
     # ---------- live view ----------
+    def on_camera_changed(self):
+        if not (self.main.camera_ok or self.main.camera_demo):
+            self.view.set_offline()
+            self.view.markers = []
+        self.refresh()
+
     def on_preview(self, qimage):
         self.view.set_frame(qimage)
         self.view.markers = self.main.live_markers
+        n = len(self.main.live_ids & {0, 1, 2, 3})
+        self.view.right_badge = f"{self.t('base_markers')} {n}/4"
         if self.result is not None and self.main.full_width:
             s = PREVIEW_WIDTH / float(self.main.full_width)
             self.view.contour = (self.result["contour_px"] * s).tolist()

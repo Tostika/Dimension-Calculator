@@ -15,12 +15,15 @@ from .library_page import LibraryPage
 from .scan_page import ScanPage
 from .settings_page import SettingsPage
 
+WIN_W, WIN_H = 1280, 700      # fixed window size; every page is laid out for exactly this
+
 TABS = (("scan", "tab_scan", "desc_scan"), ("library", "tab_library", "desc_library"),
         ("calibration", "tab_calibration", "desc_calibration"), ("settings", "tab_settings", "desc_settings"))
 
 
 class MainWindow(QMainWindow):
     preview_ready = Signal(object)       # QImage of the newest preview frame
+    camera_changed = Signal()            # camera plugged in / unplugged / demo switched
 
     def __init__(self, app, settings, library, calib_store, font_family):
         super().__init__()
@@ -36,7 +39,7 @@ class MainWindow(QMainWindow):
         self.start_camera()
         run_task(lambda: self.esp.connect(self.settings.get("serial_port") or None), self._esp_ready)
 
-        self.setMinimumSize(1180, 760)
+        self.setFixedSize(WIN_W, WIN_H)
         self.apply_theme()
         self.build()
 
@@ -62,6 +65,10 @@ class MainWindow(QMainWindow):
 
     def on_camera_status(self, opened, demo):
         self.camera_ok, self.camera_demo = opened, demo
+        if not opened and not demo:
+            self._last_preview = None
+            self.live_ids, self.live_markers = set(), []
+        self.camera_changed.emit()
         self.update_status()
 
     def _esp_ready(self, ok):
@@ -143,9 +150,9 @@ class MainWindow(QMainWindow):
         # side menu
         side = QWidget()
         side.setObjectName("Sidebar")
-        side.setFixedWidth(250)
+        side.setFixedWidth(220)
         sl = QVBoxLayout(side)
-        sl.setContentsMargins(16, 22, 16, 18)
+        sl.setContentsMargins(14, 18, 14, 16)
         sl.setSpacing(6)
         sl.addWidget(label(t("app_title"), "AppTitle", wrap=True))
         sl.addWidget(label(t("app_sub"), "Hint", wrap=True))
@@ -182,12 +189,13 @@ class MainWindow(QMainWindow):
         content = QWidget()
         content.setObjectName("Page")
         cl = QVBoxLayout(content)
-        cl.setContentsMargins(28, 24, 28, 24)
-        cl.setSpacing(16)
+        cl.setContentsMargins(22, 16, 22, 18)
+        cl.setSpacing(4)
         self.page_title = label("", "PageTitle")
         self.page_desc = label("", "Muted", wrap=True)
         cl.addWidget(self.page_title)
         cl.addWidget(self.page_desc)
+        cl.addSpacing(10)
         self.stack = QStackedWidget()
         for cls in (ScanPage, LibraryPage, CalibrationPage, SettingsPage):
             page = cls(self)

@@ -1,5 +1,7 @@
 """Camera reader thread. Keeps the newest full-resolution frame for measuring and sends a
-smaller preview frame to the screen. Falls back to a demo scene if no camera opens."""
+smaller preview frame to the screen. Plug and unplug are handled: with no camera it keeps
+looking for one every 2 s, and a camera that stops sending frames is treated as unplugged.
+The demo scene is only used when "demo camera" is switched on in Settings."""
 import sys
 import threading
 import time
@@ -14,7 +16,7 @@ PREVIEW_WIDTH = 1280
 
 class CameraThread(QThread):
     preview = Signal(object)        # small BGR frame for the screen
-    status = Signal(bool, bool)     # (opened, is_demo)
+    status = Signal(bool, bool)     # (real camera connected, demo scene showing)
 
     def __init__(self, settings):
         super().__init__()
@@ -119,20 +121,44 @@ class CameraThread(QThread):
         time.sleep(1 / 15)
         return self.demo.frame()
 
+    def _set_state(self, connected, demo):
+        if (connected, demo) != getattr(self, "_state", None):
+            self._state = (connected, demo)
+            self.is_demo = demo
+            if not connected and not demo:
+                with self._lock:
+                    self._frame = None
+            self.status.emit(connected, demo)
+
     def run(self):
-        self._cap = self._open()
-        self.is_demo = self._cap is None
-        self.status.emit(not self.is_demo, self.is_demo)
         last_preview = 0.0
+        next_try = 0.0
+        fails = 0
         while self._running:
             self._apply_pending()
-            if self.is_demo:
-                frame = self._demo_frame()
-            else:
+            if self._cap is None and time.time() >= next_try:
+                self._cap = self._open()
+                next_try = time.time() + 2.0
+                fails = 0
+            if self._cap is not None:
                 ok, frame = self._cap.read()
                 if not ok or frame is None:
-                    time.sleep(0.05)
+                    fails += 1
+                    if fails >= 15:                      # about half a second of nothing: unplugged
+                        self._cap.release()
+                        self._cap = None
+                        next_try = time.time() + 1.0
+                    time.sleep(0.03)
                     continue
+                fails = 0
+                self._set_state(True, False)
+            elif self.settings.get("demo_camera"):
+                frame = self._demo_frame()
+                self._set_state(False, True)
+            else:
+                self._set_state(False, False)
+                time.sleep(0.1)
+                continue
             with self._lock:
                 self._frame = frame
                 self._count += 1
@@ -140,8 +166,8 @@ class CameraThread(QThread):
             if now - last_preview > 1 / 30:
                 last_preview = now
                 h, w = frame.shape[:2]
-                s = PREVIEW_WIDTH / float(w)
-                small = cv2.resize(frame, (PREVIEW_WIDTH, int(h * s)), interpolation=cv2.INTER_AREA) if s < 1 else frame
+                sc = PREVIEW_WIDTH / float(w)
+                small = cv2.resize(frame, (PREVIEW_WIDTH, int(h * sc)), interpolation=cv2.INTER_AREA) if sc < 1 else frame
                 self.preview.emit(small)
         if self._cap is not None:
             self._cap.release()
