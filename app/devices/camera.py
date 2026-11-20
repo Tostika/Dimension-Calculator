@@ -66,6 +66,10 @@ class CameraThread(QThread):
         frame, _ = self.latest()
         return frame
 
+    def open_driver_settings(self):
+        """Opens Windows' own settings window for this camera (exposure, gain, brightness...)."""
+        self._pending.append(("driver_settings", None))
+
     def set_focus(self, value):
         self._pending.append(("focus", value))
 
@@ -155,6 +159,8 @@ class CameraThread(QThread):
             if what == "focus":
                 self._cap.set(cv2.CAP_PROP_AUTOFOCUS, 0)
                 self._cap.set(cv2.CAP_PROP_FOCUS, float(val))
+            elif what == "driver_settings":
+                self._cap.set(cv2.CAP_PROP_SETTINGS, 1)
             elif what == "autofocus":
                 self._cap.set(cv2.CAP_PROP_AUTOFOCUS, 1)
             elif what == "read_focus":

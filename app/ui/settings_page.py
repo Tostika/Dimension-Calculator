@@ -1,5 +1,5 @@
 """Settings tab: appearance (themes, own colours, layout, corners), language, camera, ESP32, saving."""
-from PySide6.QtCore import QRectF, QSize, Qt
+from PySide6.QtCore import QRectF, QSize, Qt, QTimer
 from PySide6.QtGui import QColor, QIcon, QPainter, QPen, QPixmap
 from PySide6.QtWidgets import (QColorDialog, QComboBox, QFileDialog, QFrame, QGridLayout, QHBoxLayout,
                                QLineEdit, QPushButton, QSizePolicy, QVBoxLayout, QWidget)
@@ -265,11 +265,39 @@ class SettingsPage(QWidget):
         text = (self.t("camera_found", w=size[0], h=size[1]) + (f"\n{name}" if name else "")) if size \
             else f"{self.t('camera')}: {self.t('not_connected')}"
         lay.addWidget(label(text, "Ok" if size else "Muted", wrap=True))
+        if size:
+            self.bright = label("", "Hint", wrap=True)
+            lay.addWidget(self.bright)
+            self._bright_timer = QTimer(self)
+            self._bright_timer.timeout.connect(self.update_brightness)
+            self._bright_timer.start(500)
+            self.update_brightness()
+        lay.addWidget(label(self.t("resolution")))
+        res = QComboBox()
+        for key, txt in (("4k", "3840 × 2160 (4K)"), ("1440", "2560 × 1440"), ("1080", "1920 × 1080")):
+            res.addItem(txt, key)
+        res.setCurrentIndex(max(0, res.findData(self.s.get("resolution"))))
+        res.currentIndexChanged.connect(lambda _: self.on_resolution(res.currentData()))
+        lay.addWidget(res)
+        drv = button(self.t("camera_driver_settings"), on_click=self.main.camera.open_driver_settings)
+        drv.setEnabled(bool(size))
+        lay.addWidget(drv)
+        lay.addWidget(label(self.t("camera_driver_hint"), "Hint", wrap=True))
         if not size:
             names = camera_names()
             if names:      # helps when the camera has an unexpected name
                 lay.addWidget(label(self.t("cameras_seen", names=", ".join(names)), "Hint", wrap=True))
         return c
+
+    def update_brightness(self):
+        f = self.main._last_preview
+        if f is not None and self.main.camera_ok:
+            self.bright.setText(self.t("picture_brightness", v=int(f[::8, ::8].mean())))
+
+    def on_resolution(self, key):
+        if key and key != self.s.get("resolution"):
+            self.s.set("resolution", key)
+            self.main.restart_camera()
 
     # ---------- ESP32 ----------
     def _esp(self):
