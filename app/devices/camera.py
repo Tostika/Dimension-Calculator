@@ -101,17 +101,17 @@ class CameraThread(QThread):
         return cap, frame.shape[1]
 
     def _configure(self, cap):
+        """Leaves the camera exactly as EMEET Studio set it (exposure, white balance, focus).
+        Only after lens calibration is the focus locked, at the value calibration found.
+        (Sending "automatic exposure" through DirectShow switched the C960 to a dark manual
+        exposure, so the app never touches exposure unless told to lock it.)"""
         if self.settings.get("lock_focus"):
             cap.set(cv2.CAP_PROP_AUTOFOCUS, 0)
             cap.set(cv2.CAP_PROP_FOCUS, float(self.settings.get("focus_value")))
-        else:
-            cap.set(cv2.CAP_PROP_AUTOFOCUS, 1)
         if self.settings.get("lock_exposure"):
             cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.25)       # DirectShow: 0.25 = manual
             cap.set(cv2.CAP_PROP_EXPOSURE, float(self.settings.get("exposure_value")))
             cap.set(cv2.CAP_PROP_AUTO_WB, 0)
-        else:
-            cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.75)       # DirectShow: 0.75 = automatic
 
     def _open(self):
         """Finds the measuring camera by itself. On Windows it goes by the device name

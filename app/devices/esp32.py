@@ -42,13 +42,20 @@ class Esp32:
         candidates = [port] if port else [p for p, _ in list_ports()]
         for dev in candidates:
             try:
-                s = serial.Serial(dev, 115200, timeout=0.5, write_timeout=1)
-                time.sleep(2.0)                       # opening the port resets the ESP32: wait for it to boot
-                s.reset_input_buffer()
-                s.write(b"PING\n")
-                if s.readline().decode(errors="ignore").strip() == "PONG":
-                    self._ser, self.port, self.demo = s, dev, False
-                    return True
+                s = serial.Serial()
+                s.port, s.baudrate, s.timeout, s.write_timeout = dev, 115200, 0.4, 1
+                # keep DTR/RTS low while opening: on ESP32 boards these lines restart the chip,
+                # which would make it forget the camera height and home again
+                s.dtr = False
+                s.rts = False
+                s.open()
+                # a board that restarted anyway needs about 2 s to boot, so ask a few times
+                for _ in range(7):
+                    s.reset_input_buffer()
+                    s.write(b"PING\n")
+                    if s.readline().decode(errors="ignore").strip() == "PONG":
+                        self._ser, self.port, self.demo = s, dev, False
+                        return True
                 s.close()
             except (serial.SerialException, OSError):
                 continue
