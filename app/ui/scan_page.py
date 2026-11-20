@@ -3,13 +3,13 @@ import os
 
 import numpy as np
 from PySide6.QtCore import Qt, QTimer
-from PySide6.QtWidgets import (QFileDialog, QFrame, QGridLayout, QHBoxLayout, QSlider, QSpinBox,
-                               QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (QFileDialog, QFrame, QGridLayout, QHBoxLayout, QSlider, QVBoxLayout,
+                               QWidget)
 
 from .. import export
 from ..devices.camera import PREVIEW_WIDTH
 from ..vision import measure
-from .common import CameraView, WrapCheck, button, card, label, repolish, run_task
+from .common import CameraView, Stepper, WrapCheck, button, card, label, repolish, run_task
 
 
 class ScanPage(QWidget):
@@ -65,11 +65,8 @@ class ScanPage(QWidget):
         self._led_timer.setSingleShot(True)
         self._led_timer.setInterval(120)
         self._led_timer.timeout.connect(lambda: self.main.set_led(self.led_slider.value()))
-        self.z_spin = QSpinBox()
-        self.z_spin.setRange(int(self.s.get("camera_height_min_cm")), int(self.s.get("camera_height_max_cm")))
-        self.z_spin.setSingleStep(1)
-        self.z_spin.setValue(int(self.s.get("camera_height_cm")))
-        self.z_spin.setMinimumWidth(80)
+        self.z_spin = Stepper(self.s.get("camera_height_cm"), self.s.get("camera_height_min_cm"),
+                              self.s.get("camera_height_max_cm"), self.t("cm"))
         self.z_set_btn = button(self.t("set_height"), on_click=self.on_set_height)
         self.z_measured = label("", "Hint", wrap=True)
         self._z_timer = QTimer(self)
@@ -131,8 +128,8 @@ class ScanPage(QWidget):
         lay.setSpacing(6)
         row = QHBoxLayout()
         row.setSpacing(8)
-        row.addWidget(self.z_spin, 1)
-        row.addWidget(self.z_set_btn, 1)
+        row.addWidget(self.z_spin, 3)
+        row.addWidget(self.z_set_btn, 2)
         lay.addLayout(row)
         if with_measured:
             lay.addWidget(self.z_measured)
@@ -230,7 +227,7 @@ class ScanPage(QWidget):
             f.setProperty("active", "true" if active else "false")
             repolish(f)
         self.primary.setText({1: self.t("capture_outline"), 2: self.t("capture_height"), 3: self.t("save")}[self.step])
-        has_camera = self.main.camera_ok or self.main.camera_demo
+        has_camera = self.main.camera_ok
         ready = has_camera and not self.busy
         self.primary.setEnabled(ready)
         self.export_btn.setEnabled(ready and self.result is not None)
@@ -242,8 +239,6 @@ class ScanPage(QWidget):
         self.val["length"].setText(f"{r['length']:.1f}" if r else e)
         self.val["width"].setText(f"{r['width']:.1f}" if r else e)
         self.val["height"].setText(f"{self.height:.1f}" if self.height is not None else e)
-        if self.main.camera.demo is not None:
-            self.main.camera.demo.mode = "plate" if self.step == 2 else "item"
 
     def show_message(self, text, error=False):
         self.view.message = text or ""
@@ -258,12 +253,15 @@ class ScanPage(QWidget):
 
     # ---------- live view ----------
     def on_camera_changed(self):
-        if not (self.main.camera_ok or self.main.camera_demo):
+        if not self.main.camera_ok:
             self.view.set_offline()
             self.view.markers = []
+            self.view.right_badge = ""
         self.refresh()
 
     def on_preview(self, qimage):
+        if not self.main.camera_ok:
+            return
         self.view.set_frame(qimage)
         self.view.markers = self.main.live_markers
         n = len(self.main.live_ids & {0, 1, 2, 3})
@@ -305,7 +303,7 @@ class ScanPage(QWidget):
             main.set_led(level)
             on = cam.wait_new_frames(4)
             off = None
-            if s.get("remove_ambient"):
+            if s.get("remove_ambient") and main.esp.connected:   # without the ESP32 the LEDs can't switch off
                 main.set_led(0)
                 off = cam.wait_new_frames(4)
                 main.set_led(level)

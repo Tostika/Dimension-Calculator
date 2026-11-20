@@ -60,7 +60,7 @@ def run_pages():
     with demo frames, with background tasks run immediately."""
     import cv2
     import numpy as np
-    from app.devices.camera import DemoScene
+    from tests.fake_camera import DemoScene
     from app.ui import calibration_page, library_page, scan_page, settings_page
     from app.vision.synthetic import Scene
 
@@ -85,17 +85,24 @@ def run_pages():
     lib = Library(os.path.join(d, "lib.db"))
     store = CalibrationStore(os.path.join(d, "cal.json"))
     w = MainWindow(qt_stub.Dummy(), s, lib, store, lambda lang: "Segoe UI")
-    w.camera_demo = True
+    w.camera_ok = True
     cam = w.camera
     cam.demo = DemoScene(Scene(1920, 1080, tex_px_per_mm=4, settings=s))
     cam.wait_new_frames = lambda n=3, timeout=3.0: cam.demo.frame()
     cam.latest = lambda: (cam.demo.frame(), 1)
     cam.frame_size = lambda: (1920, 1080)
+    w.esp._ser = object()                       # pretend the ESP32 is connected, LEDs drive the fake scene
+    w.esp._cmd = lambda line, **k: "OK"
+    w.set_led = lambda pct: setattr(cam.demo, "led", pct / 100.0)
 
     sp = scan_page.ScanPage(w)
     sp.capture_outline()
+    if sp.result is None:
+        print("outline failed:", sp.view.message)
     print("step after outline:", sp.step, "L/W:", round(sp.result["length"], 1), round(sp.result["width"], 1))
+    cam.demo.mode = "plate"
     sp.capture_height()
+    cam.demo.mode = "item"
     print("step after height:", sp.step, "H:", round(sp.height, 2), "L/W:", round(sp.result["length"], 1), round(sp.result["width"], 1))
     sp.save()
     print("saved; library count:", lib.count(), "names:", [r["display_name"] for r in lib.all()])
@@ -151,7 +158,9 @@ def run_pages():
     cp.fill_lens_rows()
     cp.update_chips()
     cp.on_check_base()
+    cam.demo.mode = "plate_empty"
     cp.on_zero()
+    cam.demo.mode = "item"
     # live camera height from the markers, with a lens calibration of the demo camera
     from app.vision.synthetic import Scene as _Sc
     sc = _Sc(1920, 1080, tex_px_per_mm=4, settings=s)

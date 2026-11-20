@@ -56,7 +56,7 @@ class Dummy(metaclass=_Meta):
 
 
 # methods that the app calls through super(), which skips __getattr__
-for _name in ("setText", "resizeEvent", "showEvent", "closeEvent", "paintEvent", "setStyleSheet"):
+for _name in ("setText", "resizeEvent", "showEvent", "closeEvent", "paintEvent", "setStyleSheet", "setEnabled"):
     setattr(Dummy, _name, lambda self, *a, **k: Dummy())
 
 

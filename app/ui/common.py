@@ -119,12 +119,61 @@ class WrapCheck(QWidget):
         self.checkbox = QCheckBox()
         self.checkbox.setChecked(bool(checked))
         self.text = label(text, wrap=True)
+        self.text.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         self.text.setCursor(Qt.CursorShape.PointingHandCursor)
         self.text.mousePressEvent = lambda e: self.checkbox.toggle()
-        lay.addWidget(self.checkbox, 0, Qt.AlignmentFlag.AlignTop)
+        lay.addWidget(self.checkbox, 0, Qt.AlignmentFlag.AlignVCenter)
         lay.addWidget(self.text, 1)
         if on_toggle:
             self.checkbox.toggled.connect(on_toggle)
+
+
+class Stepper(QFrame):
+    """A number with round - and + buttons on both sides (replaces the old Windows spin box)."""
+
+    def __init__(self, value, minimum, maximum, unit="", on_change=None):
+        super().__init__()
+        self.setObjectName("Stepper")
+        self.v, self.lo, self.hi, self.unit, self.on_change = int(value), int(minimum), int(maximum), unit, on_change
+        lay = QHBoxLayout(self)
+        lay.setContentsMargins(4, 4, 4, 4)
+        lay.setSpacing(4)
+        self.minus = QPushButton("\u2212")
+        self.plus = QPushButton("+")
+        for b in (self.minus, self.plus):
+            b.setObjectName("StepBtn")
+            b.setFixedSize(36, 36)
+            b.setCursor(Qt.CursorShape.PointingHandCursor)
+            b.setAutoRepeat(True)
+        self.value_label = QLabel()
+        self.value_label.setObjectName("StepValue")
+        self.value_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        lay.addWidget(self.minus)
+        lay.addWidget(self.value_label, 1)
+        lay.addWidget(self.plus)
+        self.minus.clicked.connect(lambda: self.setValue(self.v - 1))
+        self.plus.clicked.connect(lambda: self.setValue(self.v + 1))
+        self._show()
+
+    def value(self):
+        return self.v
+
+    def setValue(self, v):
+        v = max(self.lo, min(self.hi, int(v)))
+        changed = v != self.v
+        self.v = v
+        self._show()
+        if changed and self.on_change:
+            self.on_change(v)
+
+    def _show(self):
+        self.value_label.setText(f"{self.v} {self.unit}".strip())
+        self.minus.setEnabled(self.isEnabled() and self.v > self.lo)
+        self.plus.setEnabled(self.isEnabled() and self.v < self.hi)
+
+    def setEnabled(self, on):
+        super().setEnabled(on)
+        self._show()
 
 
 def card(title=None, spacing=12, name="Card"):

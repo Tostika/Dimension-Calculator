@@ -269,9 +269,6 @@ class SettingsPage(QWidget):
             names = camera_names()
             if names:      # helps when the camera has an unexpected name
                 lay.addWidget(label(self.t("cameras_seen", names=", ".join(names)), "Hint", wrap=True))
-        # the camera thread picks this up live
-        lay.addWidget(WrapCheck(self.t("demo_camera_setting"), self.s.get("demo_camera"),
-                                lambda v: self.s.set("demo_camera", bool(v))))
         return c
 
     # ---------- ESP32 ----------

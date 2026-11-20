@@ -1,6 +1,5 @@
 """Synthetic scene renderer: the base, its markers, an item and the height card, seen through a
-virtual pinhole camera with real perspective. Used by the demo camera (when no camera is
-plugged in) and by tests/test_vision.py."""
+virtual pinhole camera with real perspective. Used only by the tests, never shown in the app."""
 import cv2
 import numpy as np
 

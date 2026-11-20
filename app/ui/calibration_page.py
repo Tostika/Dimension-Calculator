@@ -73,7 +73,7 @@ class CalibrationPage(QWidget):
                    "Ok" if calib else "Muted")
         rl.addWidget(st, 2)
         b = button(self.t("redo") if calib else self.t("start"), on_click=self.on_start)
-        b.setEnabled(self.session is None and (self.main.camera_ok or self.main.camera_demo))
+        b.setEnabled(self.session is None and self.main.camera_ok)
         rl.addWidget(b)
         self.lens_rows.addWidget(row)
 
@@ -216,13 +216,8 @@ class CalibrationPage(QWidget):
         lay.addStretch(1)
         return c
 
-    def _demo_mode(self, mode):
-        if self.main.camera.demo is not None:
-            self.main.camera.demo.mode = mode
-
     def on_zero(self):
         cam, s, store = self.main.camera, self.s, self.main.calib_store
-        self._demo_mode("plate_empty")
 
         def job():
             frame = cam.wait_new_frames(3)
@@ -230,11 +225,9 @@ class CalibrationPage(QWidget):
             return measure.measure_height(frame, bm, s, s.camera_height_mm(), clamp=False)
 
         def done(h):
-            self._demo_mode("item")
             self._msg(self.plate_msg, self.t("zero_result", h=f"{h:.2f}"))
 
         def fail(e):
-            self._demo_mode("item")
             self._msg(self.plate_msg, self._err_text(e), True)
 
         run_task(job, done, fail)

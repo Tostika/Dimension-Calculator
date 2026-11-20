@@ -24,7 +24,7 @@ TABS = (("scan", "tab_scan", "desc_scan"), ("library", "tab_library", "desc_libr
 
 class MainWindow(QMainWindow):
     preview_ready = Signal(object)       # QImage of the newest preview frame
-    camera_changed = Signal()            # camera plugged in / unplugged / demo switched
+    camera_changed = Signal()            # camera plugged in / unplugged
 
     def __init__(self, app, settings, library, calib_store, font_family):
         super().__init__()
@@ -35,7 +35,7 @@ class MainWindow(QMainWindow):
         self.live_height_mm = None        # camera height measured from the base markers (needs lens calibration)
         self._old_cameras = []
         self._last_preview = None
-        self.camera_ok, self.camera_demo = False, False
+        self.camera_ok = False
 
         self.esp = Esp32()
         self.camera = None
@@ -69,9 +69,9 @@ class MainWindow(QMainWindow):
         old.finished.connect(lambda: self._old_cameras.remove(old) if old in self._old_cameras else None)
         self.start_camera()
 
-    def on_camera_status(self, opened, demo):
-        self.camera_ok, self.camera_demo = opened, demo
-        if not opened and not demo:
+    def on_camera_status(self, opened):
+        self.camera_ok = opened
+        if not opened:
             self._last_preview = None
             self.live_ids, self.live_markers = set(), []
         self.camera_changed.emit()
@@ -87,8 +87,6 @@ class MainWindow(QMainWindow):
     def set_led(self, percent):
         """Safe from any thread."""
         self.esp.set_led(percent)
-        if self.camera is not None and self.camera.demo is not None:
-            self.camera.demo.led = percent / 100.0
 
     def on_preview(self, frame):
         self._last_preview = frame
@@ -98,7 +96,8 @@ class MainWindow(QMainWindow):
 
     def detect_live_markers(self):
         f = self._last_preview
-        if f is None:
+        if f is None or not self.camera_ok:
+            self.live_ids, self.live_markers, self.live_height_mm = set(), [], None
             return
         found = detect(cv2.cvtColor(f, cv2.COLOR_BGR2GRAY))
         self.live_ids = set(found)
@@ -119,17 +118,13 @@ class MainWindow(QMainWindow):
             return
         t = self.t
         try:
-            if self.camera_demo:
-                self.st_camera.setText(t("demo_camera"))
-                self._dot(self.st_camera_dot, False)
-            else:
-                self.st_camera.setText(f"{t('camera')}: {t('connected') if self.camera_ok else t('not_connected')}")
-                self._dot(self.st_camera_dot, self.camera_ok)
+            self.st_camera.setText(f"{t('camera')}: {t('connected') if self.camera_ok else t('not_connected')}")
+            self._dot(self.st_camera_dot, self.camera_ok)
             self.st_esp.setText(f"ESP32 {self.esp.port}: {t('connected')}" if self.esp.connected
                                 else f"ESP32: {t('not_connected')}")
             self._dot(self.st_esp_dot, self.esp.connected)
-            base = len(self.live_ids & {0, 1, 2, 3})
-            self.st_markers.setText(f"{t('base_markers')} {base}/4")
+            base = len(self.live_ids & {0, 1, 2, 3}) if self.camera_ok else 0
+            self.st_markers.setText(f"{t('base_markers')} {base}/4" if self.camera_ok else f"{t('base_markers')}: -")
             self._dot(self.st_markers_dot, base == 4)
         except RuntimeError:
             pass

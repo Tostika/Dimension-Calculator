@@ -133,6 +133,14 @@ QPushButton#Lang {{ min-height: 36px; border: 0; font-weight: 600; color: {p['na
 QPushButton#Option {{ border: 2px solid {p['border']}; border-radius: {p['r']}px; background: {p['bg']}; padding: 8px; }}
 QPushButton#Option:checked {{ border: 2px solid {p['accent']}; }}
 
+QFrame#Stepper {{ background: {p['field']}; border: 1px solid {p['border']}; border-radius: {p['rs']}px; }}
+QPushButton#StepBtn {{ min-height: 0; padding: 0; border: 0; border-radius: {max(3, p['rs'] - 2)}px; background: {p['accent_soft']};
+    color: {p['accent']}; font-size: 20px; font-weight: 700; }}
+QPushButton#StepBtn:hover {{ background: {p['accent']}; color: {p['on_accent']}; }}
+QPushButton#StepBtn:disabled {{ background: transparent; color: {p['border']}; }}
+QLabel#StepValue {{ font-size: 17px; font-weight: 700; }}
+QLineEdit, QSpinBox, QDoubleSpinBox, QComboBox {{ selection-background-color: {p['accent']}; selection-color: {p['on_accent']}; }}
+QSpinBox::up-button, QSpinBox::down-button, QDoubleSpinBox::up-button, QDoubleSpinBox::down-button {{ width: 0; border: 0; }}
 QLineEdit, QSpinBox, QDoubleSpinBox, QComboBox {{ min-height: 42px; padding: 0 10px; border-radius: {p['rs']}px; border: 1px solid {p['border']}; background: {p['field']}; color: {p['text']}; }}
 QLineEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus, QComboBox:focus {{ border: 1px solid {p['accent']}; }}
 QLineEdit#NameEdit {{ font-size: 17px; font-weight: 700; border: 1px solid {p['accent']}; }}

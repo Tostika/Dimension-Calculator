@@ -1,14 +1,14 @@
 """Camera reader thread. Keeps the newest full-resolution frame for measuring and sends a
 smaller preview frame to the screen. Plug and unplug are handled: with no camera it keeps
-looking for one every 2 s, and a camera that stops sending frames is treated as unplugged.
-The demo scene is only used when "demo camera" is switched on in Settings."""
+looking for one every 2 s. A camera counts as unplugged when Windows no longer lists it,
+when it stops sending frames, or when it only sends black frames."""
 import sys
 import threading
 import time
 
 import cv2
-import numpy as np
 from PySide6.QtCore import QThread, Signal
+
 
 def camera_names():
     """Names of the video devices, in the same order OpenCV numbers them (Windows DirectShow).
@@ -28,7 +28,7 @@ PREVIEW_WIDTH = 1280
 
 class CameraThread(QThread):
     preview = Signal(object)        # small BGR frame for the screen
-    status = Signal(bool, bool)     # (real camera connected, demo scene showing)
+    status = Signal(bool)           # camera connected or not
 
     def __init__(self, settings):
         super().__init__()
@@ -39,8 +39,6 @@ class CameraThread(QThread):
         self._running = True
         self._cap = None
         self._pending = []           # property changes to apply inside the thread
-        self.is_demo = False
-        self.demo = None
         self._small = {}             # camera index -> time it was found to be a small (non-4K) camera
         self.device_name = ""
 
@@ -165,21 +163,20 @@ class CameraThread(QThread):
                 self._cap.set(cv2.CAP_PROP_FOCUS, v)
                 self.settings.set("focus_value", float(v))
 
-    def _demo_frame(self):
-        from ..vision.synthetic import Scene
-        if self.demo is None:
-            self.demo = DemoScene(Scene(1920, 1080, tex_px_per_mm=4, settings=self.settings))
-        time.sleep(1 / 15)
-        return self.demo.frame()
-
-    def _set_state(self, connected, demo):
-        if (connected, demo) != getattr(self, "_state", None):
-            self._state = (connected, demo)
-            self.is_demo = demo
-            if not connected and not demo:
+    def _set_state(self, connected):
+        if connected != getattr(self, "_state", None):
+            self._state = connected
+            if not connected:
                 with self._lock:
                     self._frame = None
-            self.status.emit(connected, demo)
+                self.device_name = ""
+            self.status.emit(connected)
+
+    def _drop(self):
+        if self._cap is not None:
+            self._cap.release()
+        self._cap = None
+        self._set_state(False)
 
     def run(self):
         try:                                    # device names are read through COM, which needs this per thread
@@ -189,36 +186,47 @@ class CameraThread(QThread):
             pass
         last_preview = 0.0
         next_try = 0.0
+        next_check = 0.0
         fails = 0
+        black_since = None
+        self._set_state(False)
         while self._running:
             self._apply_pending()
-            if self._cap is None and time.time() >= next_try:
-                self._cap = self._open()
-                next_try = time.time() + 2.0
-                fails = 0
-            if self._cap is not None:
-                ok, frame = self._cap.read()
-                if not ok or frame is None:
-                    fails += 1
-                    if fails >= 15:                      # about half a second of nothing: unplugged
-                        self._cap.release()
-                        self._cap = None
-                        next_try = time.time() + 1.0
-                    time.sleep(0.03)
+            now = time.time()
+            if self._cap is None:
+                if now >= next_try:
+                    self._cap = self._open()
+                    next_try = time.time() + 2.0
+                    fails, black_since, next_check = 0, None, time.time() + 1.0
+                if self._cap is None:
+                    time.sleep(0.1)
                     continue
-                fails = 0
-                self._set_state(True, False)
-            elif self.settings.get("demo_camera"):
-                frame = self._demo_frame()
-                self._set_state(False, True)
-            else:
-                self._set_state(False, False)
-                time.sleep(0.1)
+            # still plugged in? (Windows keeps a list of cameras; ours must be on it)
+            if self.device_name and now >= next_check:
+                next_check = now + 1.0
+                names = camera_names()
+                if names is not None and self.device_name not in names:
+                    self._drop()
+                    continue
+            ok, frame = self._cap.read()
+            if not ok or frame is None:
+                fails += 1
+                if fails >= 15:                          # about half a second of nothing
+                    self._drop()
+                time.sleep(0.03)
                 continue
+            fails = 0
+            if frame[::16, ::16].max() < 8:              # an unplugged camera can keep sending black frames
+                black_since = black_since or now
+                if now - black_since > 2.0:
+                    self._drop()
+                    continue
+            else:
+                black_since = None
+            self._set_state(True)
             with self._lock:
                 self._frame = frame
                 self._count += 1
-            now = time.time()
             if now - last_preview > 1 / 30:
                 last_preview = now
                 h, w = frame.shape[:2]
@@ -227,36 +235,3 @@ class CameraThread(QThread):
                 self.preview.emit(small)
         if self._cap is not None:
             self._cap.release()
-
-
-class DemoScene:
-    """What the demo camera shows. The scan page switches it: item alone, item + card, empty."""
-
-    def __init__(self, scene):
-        self.scene = scene
-        self.mode = "item"
-        self.led = 1.0
-        self._cache = {}
-
-    def frame(self):
-        cam_h = float(self.scene.get("camera_height_cm")) * 10.0  # follows the height set in the app
-        key = (self.mode, round(self.led, 2), cam_h)
-        if key not in self._cache:
-            light = 0.35 + 0.65 * self.led                      # room light + our LEDs
-            if self.mode == "item":
-                f = self.scene.render(with_item=True, light=light, noise_seed=None, cam_h=cam_h)
-            elif self.mode == "plate":
-                f = self.scene.render(with_item=True, with_plate=True, light=light, noise_seed=None, cam_h=cam_h)
-            elif self.mode == "plate_empty":
-                f = self.scene.render(with_item=False, with_plate=True, light=light, noise_seed=None, cam_h=cam_h)
-            elif self.mode == "card":
-                f = self.scene.render(item_h=0.8, item=(85.6, 53.98), item_center=(150, 95), light=light, noise_seed=None, cam_h=cam_h)
-            else:
-                f = self.scene.render(with_item=False, light=light, noise_seed=None, cam_h=cam_h)
-            if len(self._cache) > 12:
-                self._cache.clear()
-            self._cache[key] = f
-        noise = np.random.default_rng().integers(-2, 3, size=(8, 8, 3), dtype=np.int16)
-        f = self._cache[key].astype(np.int16)
-        f[:8, :8] += noise                                      # tiny change so frames are "new"
-        return np.clip(f, 0, 255).astype(np.uint8)
