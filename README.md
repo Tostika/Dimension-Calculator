@@ -42,5 +42,6 @@ Pins: LED PWM 25, STEP 26, DIR 27, EN 14, limit switch 33 (to GND). After buildi
 height above the base when the limit switch clicks and put it in `Z_HOME_MM`.
 
 ## New release
-Push a tag such as `v0.2.0`. GitHub Actions builds `DimensionDevice.exe` on Windows and attaches
+Change the number in `VERSION` (for example to `0.2.0`) and push to main. GitHub Actions builds
+`DimensionDevice.exe` on Windows, creates the Release `v0.2.0` and attaches
 `DimensionDevice-windows.zip` (app, print sheets, firmware, FreeCAD macro) to a new Release.
