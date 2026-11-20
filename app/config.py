@@ -14,7 +14,9 @@ def data_dir():
     return path
 
 
-SETTINGS_VERSION = 3
+SETTINGS_VERSION = 4
+
+SHEET_KEYS = ("marker_size_mm", "base_marker_centers_mm", "plate_marker_size_mm", "plate_marker_centers_mm")
 
 DEFAULTS = {
     "settings_version": SETTINGS_VERSION,
@@ -70,6 +72,12 @@ class Settings:
             self.data["lock_exposure"] = False
             self.data["settings_version"] = SETTINGS_VERSION
             self.save()
+        if stored_version < 4:
+            # v0.1.9 ships fixed print sheets (print/base_A3.pdf, height_card_A4.pdf) that match
+            # the defaults exactly: forget layouts learned from older sheets
+            self.use_sheet_layout()
+            self.data["settings_version"] = SETTINGS_VERSION
+            self.save()
         if not self.data.get("export_folder"):
             self.data["export_folder"] = os.path.join(data_dir(), "exports")
 
@@ -91,6 +99,12 @@ class Settings:
         with open(tmp, "w", encoding="utf-8") as f:
             json.dump(self.data, f, ensure_ascii=False, indent=2)
         os.replace(tmp, self.path)
+
+    def use_sheet_layout(self):
+        """Marker sizes and positions of the printed sheets (base_A3.pdf, height_card_A4.pdf)."""
+        for k in SHEET_KEYS:
+            self.data[k] = deepcopy(DEFAULTS[k])
+        self.save()
 
     def camera_height_mm(self):
         return float(self.get("camera_height_cm")) * 10.0

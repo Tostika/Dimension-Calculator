@@ -69,6 +69,7 @@ TEXT = {
     "err_layout": {"ka": "მარკერები სხვაგან დგას, ვიდრე პარამეტრებშია. კალიბრაციაში დააჭირეთ \"მარკერების განლაგების დასწავლას\".",
                    "en": "The markers are not where the settings say. In Calibration, press \"Learn marker layout\"."},
     "layout_mismatch": {"ka": "მარკერების განლაგება არ ემთხვევა. საჭიროა დასწავლა კალიბრაციაში.", "en": "Marker layout doesn't match. Learn it in Calibration."},
+    "use_sheet_layout": {"ka": "დაბეჭდილი A3 ფურცლის განლაგება", "en": "Use the printed A3 sheet layout"},
     "learn_layout": {"ka": "მარკერების განლაგების დასწავლა", "en": "Learn marker layout"},
     "learn_layout_hint": {"ka": "ჯერ ზუსტად გაზომეთ ერთი მარკერის შავი კვადრატის გვერდი სახაზავით და ჩაწერეთ ზემოთ. შემდეგ დააჭირეთ ღილაკს: კამერა თავად გაზომავს, სად დგას ოთხივე მარკერი.",
                           "en": "First measure the side of one marker's black square with a ruler and enter it above. Then press the button: the camera measures where all four markers are."},

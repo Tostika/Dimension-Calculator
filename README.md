@@ -29,12 +29,16 @@ tests/                      python -m tests.test_vision   /   python -m tests.te
 Settings, the library (`library.db`), `calibration.json` and exports are kept in
 `%APPDATA%\DimensionDevice`.
 
-## Print the markers
-`python tools/make_markers.py` writes the sheets into `print/`. Print at **100 % / actual size**,
-then check a marker with a ruler (base markers 30 mm, card markers 26 mm). Cut the base markers
-on the grey frame so a white border stays around each one, and glue them on the matte base sheet
-centre to centre 300 mm across and 190 mm down. If you place them differently, change
-`base_marker_centers_mm` in `settings.json`.
+## Print the sheets
+The PDFs in `print/` are made at exact size and the app is set up for exactly these sheets
+(nothing to measure or learn). Print at **100 % / "Actual size"**, never "Fit to page", and check
+the 100 mm line on each sheet with a ruler.
+- `base_A3.pdf`: the base (A3, any print shop). Markers 0-3, 30 mm, centres 300 x 190 mm apart.
+  Lay it flat and tape it down; the item goes inside the four markers.
+- `height_card_A4.pdf`: the 100 x 70 mm height card (markers 4-7, 26 mm). Cut on the grey line, glue on
+  a flat rigid plate, enter paper + plate thickness in Calibration > Height card.
+- `checkerboard_A4.pdf`: lens calibration board. Glue it on cardboard so it stays flat.
+To remake them: `python tools/make_markers.py`.
 
 ## ESP32
 Open `firmware/esp32_dimension/esp32_dimension.ino` in Arduino IDE, board "ESP32 Dev Module", upload.

@@ -227,6 +227,7 @@ class CalibrationPage(QWidget):
         lay.addWidget(self.learn_btn)
         self.layout_label = label("", "Muted", wrap=True)
         lay.addWidget(self.layout_label)
+        lay.addWidget(button(self.t("use_sheet_layout"), on_click=self.on_sheet_layout))
         self.show_layout()
         lay.addWidget(button(self.t("check_base"), on_click=self.on_check_base))
         self.base_msg = label("", "Message", wrap=True)
@@ -239,6 +240,12 @@ class CalibrationPage(QWidget):
         a = float(np.hypot(c["1"][0] - c["0"][0], c["1"][1] - c["0"][1]))
         b = float(np.hypot(c["2"][0] - c["0"][0], c["2"][1] - c["0"][1]))
         self.layout_label.setText(self.t("layout_now", a=f"{a:.1f}", b=f"{b:.1f}"))
+
+    def on_sheet_layout(self):
+        self.s.use_sheet_layout()
+        self.marker_spin.setValue(float(self.s.get("marker_size_mm")))
+        self.show_layout()
+        self._msg(self.base_msg, "")
 
     def on_learn_layout(self):
         cam, s, store = self.main.camera, self.s, self.main.calib_store
