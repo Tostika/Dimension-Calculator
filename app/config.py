@@ -14,23 +14,28 @@ def data_dir():
     return path
 
 
+SETTINGS_VERSION = 2
+
 DEFAULTS = {
+    "settings_version": SETTINGS_VERSION,
     "language": "ka",            # "ka" or "en"
     "theme": "graphite",         # preset id, or "custom"
     "custom_colors": None,       # {"bg","surface","text","accent"} when theme == "custom"
     "scan_layout": "side",       # "side" or "wide"
     "corners": "round",          # "round" or "sharp"
-    "camera_index": 0,
+    "last_camera_index": 0,      # the app finds the camera itself; this only makes it look there first
+    "min_camera_width": 2560,    # only accept a camera that gives at least this width (the 4K C960, not a laptop webcam)
     "demo_camera": False,        # show a drawn test scene when no camera is connected
     "resolution": "4k",          # "4k", "1440", "1080"
-    "lock_focus": True,
-    "focus_value": 30,           # manual focus value per camera height is stored in calibration
-    "lock_exposure": True,
+    "lock_focus": False,         # switched on automatically after lens calibration, with the focus it found
+    "focus_value": 30,
+    "lock_exposure": False,
     "exposure_value": -6,
     "serial_port": "",
     "led_brightness": 80,
-    "z_preset_mm": 400,
-    "z_presets_mm": [350, 400, 450],  # lens height above the base; all 4 base markers must be visible
+    "camera_height_cm": 37,      # lens height above the base, 35-40 cm in 1 cm steps
+    "camera_height_min_cm": 35,
+    "camera_height_max_cm": 40,
     "remove_ambient": True,
     "marker_size_mm": 30.0,      # printed side length of base markers 0-3
     "base_marker_centers_mm": {  # centre of each base marker on the base, in mm (origin = marker 0)
@@ -57,6 +62,12 @@ class Settings:
         self.path = path or os.path.join(data_dir(), "settings.json")
         self.data = deepcopy(DEFAULTS)
         self.load()
+        if int(self.data.get("settings_version", 1)) < SETTINGS_VERSION:
+            # v0.1.0/v0.1.1 locked focus and exposure by default, which can give a blurry or dark picture
+            self.data["lock_focus"] = False
+            self.data["lock_exposure"] = False
+            self.data["settings_version"] = SETTINGS_VERSION
+            self.save()
         if not self.data.get("export_folder"):
             self.data["export_folder"] = os.path.join(data_dir(), "exports")
 
@@ -75,6 +86,9 @@ class Settings:
         with open(tmp, "w", encoding="utf-8") as f:
             json.dump(self.data, f, ensure_ascii=False, indent=2)
         os.replace(tmp, self.path)
+
+    def camera_height_mm(self):
+        return float(self.get("camera_height_cm")) * 10.0
 
     def get(self, key):
         return self.data.get(key, DEFAULTS.get(key))

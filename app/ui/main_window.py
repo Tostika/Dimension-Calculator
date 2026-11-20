@@ -8,7 +8,8 @@ from .. import theme
 from ..devices.camera import CameraThread
 from ..devices.esp32 import Esp32
 from ..i18n import Translator
-from ..vision.markers import detect
+from ..vision.calibration import scaled
+from ..vision.markers import BASE_IDS, BaseMap, detect
 from .calibration_page import CalibrationPage
 from .common import bgr_to_qimage, button, label, run_task
 from .library_page import LibraryPage
@@ -31,6 +32,8 @@ class MainWindow(QMainWindow):
         self.font_family = font_family
         self.tab = 0
         self.live_markers, self.live_ids, self.full_width = [], set(), None
+        self.live_height_mm = None        # camera height measured from the base markers (needs lens calibration)
+        self._old_cameras = []
         self._last_preview = None
         self.camera_ok, self.camera_demo = False, False
 
@@ -60,7 +63,10 @@ class MainWindow(QMainWindow):
     def restart_camera(self):
         old = self.camera
         old.preview.disconnect(self.on_preview)
-        old.stop()
+        old.status.disconnect(self.on_camera_status)
+        old._running = False
+        self._old_cameras.append(old)        # keep it alive until its thread has really stopped
+        old.finished.connect(lambda: self._old_cameras.remove(old) if old in self._old_cameras else None)
         self.start_camera()
 
     def on_camera_status(self, opened, demo):
@@ -75,7 +81,7 @@ class MainWindow(QMainWindow):
         if ok:
             self.settings.set("serial_port", self.esp.port)
             self.set_led(int(self.settings.get("led_brightness")))
-            run_task(lambda: self.esp.move_to(self.settings.get("z_preset_mm")))
+            run_task(lambda: self.esp.move_to(self.settings.camera_height_mm()))
         self.update_status()
 
     def set_led(self, percent):
@@ -97,6 +103,16 @@ class MainWindow(QMainWindow):
         found = detect(cv2.cvtColor(f, cv2.COLOR_BGR2GRAY))
         self.live_ids = set(found)
         self.live_markers = [c.tolist() for c in found.values()]
+        self.live_height_mm = None
+        size = self.camera.frame_size()
+        lens = self.calib_store.lens(size)
+        if lens and size and all(i in found for i in BASE_IDS):
+            try:
+                bm = BaseMap(found, self.settings.get("base_marker_centers_mm"), self.settings.get("marker_size_mm"),
+                             scaled(lens, f.shape[1] / float(size[0])))
+                self.live_height_mm = bm.camera_height_mm
+            except Exception:
+                pass
 
     def update_status(self):
         if not hasattr(self, "st_camera"):
@@ -243,5 +259,7 @@ class MainWindow(QMainWindow):
         except Exception:
             pass
         self.camera.stop()
+        for old in list(self._old_cameras):
+            old.wait(3000)
         self.library.close()
         super().closeEvent(e)

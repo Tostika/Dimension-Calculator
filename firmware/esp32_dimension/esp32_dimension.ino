@@ -22,7 +22,7 @@ const int PIN_LIMIT = 33;   // limit switch between this pin and GND (pressed = 
 // ---------- mechanics: measure and adjust these after building ----------
 const float STEPS_PER_MM = 200.0 * 16.0 / 2.0; // 200 steps/rev, 1/16 microstep, 2 mm per turn = 1600
 const float Z_HOME_MM    = 450.0;  // lens height above the base when the limit switch clicks
-const float Z_MIN_MM     = 300.0;  // never go lower than this
+const float Z_MIN_MM     = 350.0;  // the app uses 35-40 cm; never go lower than this
 const bool  DIR_UP_LEVEL = HIGH;   // if the camera goes down on HOME, change to LOW
 const float SPEED_MM_S   = 6.0;    // top speed
 const float ACCEL_MM_S2  = 20.0;

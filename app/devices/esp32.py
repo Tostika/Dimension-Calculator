@@ -27,7 +27,7 @@ class Esp32:
         self._lock = threading.Lock()
         self.port = ""
         self.demo = True
-        self.z_mm = 300.0
+        self.z_mm = 370.0
         self.led = 0
 
     @property

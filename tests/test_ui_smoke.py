@@ -25,7 +25,7 @@ def run():
     lib.add(147.6, 71.5, 7.8, [[0, 0], [147.6, 0], [147.6, 71.5], [0, 71.5]], s.get("export_folder"))
     lib.add(85.6, 54.0, None, [[0, 0], [85.6, 0], [85.6, 54], [0, 54]], s.get("export_folder"))
     store = CalibrationStore(os.path.join(d, "cal.json"))
-    store.put(400, {"K": [[1, 0, 0], [0, 1, 0], [0, 0, 1]], "dist": [0] * 5, "rms": 0.21, "size": [3840, 2160], "focus": 30})
+    store.set_lens({"K": [[1, 0, 0], [0, 1, 0], [0, 0, 1]], "dist": [0] * 5, "rms": 0.21, "size": [3840, 2160], "focus": 30})
     w = MainWindow(qt_stub.Dummy(), s, lib, store, lambda lang: "Segoe UI")
     for lang in ("ka", "en"):
         for layout in ("side", "wide"):
@@ -58,6 +58,7 @@ if __name__ == "__main__":
 def run_pages():
     """Runs the scan flow (outline, height, save), library rename/search and calibration checks
     with demo frames, with background tasks run immediately."""
+    import cv2
     import numpy as np
     from app.devices.camera import DemoScene
     from app.ui import calibration_page, library_page, scan_page, settings_page
@@ -84,6 +85,7 @@ def run_pages():
     lib = Library(os.path.join(d, "lib.db"))
     store = CalibrationStore(os.path.join(d, "cal.json"))
     w = MainWindow(qt_stub.Dummy(), s, lib, store, lambda lang: "Segoe UI")
+    w.camera_demo = True
     cam = w.camera
     cam.demo = DemoScene(Scene(1920, 1080, tex_px_per_mm=4, settings=s))
     cam.wait_new_frames = lambda n=3, timeout=3.0: cam.demo.frame()
@@ -146,12 +148,18 @@ def run_pages():
 
     cp = calibration_page.CalibrationPage(w)
     cp._msg = lambda lab, text, error=False: print("  calibration message:", "ERROR" if error else "ok", text)
-    cp.acc_value.setText = lambda text: print("  accuracy:", text)
     cp.fill_lens_rows()
     cp.update_chips()
     cp.on_check_base()
     cp.on_zero()
-    cp.on_accuracy()
+    # live camera height from the markers, with a lens calibration of the demo camera
+    from app.vision.synthetic import Scene as _Sc
+    sc = _Sc(1920, 1080, tex_px_per_mm=4, settings=s)
+    store.set_lens({"K": sc.K.tolist(), "dist": [0] * 5, "rms": 0.1, "size": [1920, 1080], "focus": 30})
+    w._last_preview = cv2.resize(cam.demo.frame(), (1280, 720))
+    w.detect_live_markers()
+    print("live camera height (true 370 mm):", w.live_height_mm and round(w.live_height_mm, 1))
+    sp.update_measured_height()
 
     stp = settings_page.SettingsPage(w)
     stp.fill_ports()

@@ -1,13 +1,11 @@
-"""Calibration tab: lens per camera height, base markers, height card, accuracy check."""
+"""Calibration tab: lens (once), base markers, height card."""
 from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QDoubleSpinBox, QFrame, QGridLayout, QHBoxLayout, QVBoxLayout, QWidget
 
 from ..vision import measure
-from ..vision.calibration import FRAMES_NEEDED, CalibrationSession
+from ..vision.calibration import CalibrationSession
 from ..vision.markers import BASE_IDS
 from .common import button, card, label, repolish, run_task
-
-BANK_CARD = (85.60, 53.98)
 
 
 class CalibrationPage(QWidget):
@@ -16,19 +14,18 @@ class CalibrationPage(QWidget):
         self.setObjectName("Page")
         self.main, self.t, self.s, self.p = main, main.t, main.settings, main.palette
         self.session = None
-        self.session_z = None
 
         grid = QGridLayout(self)
         grid.setContentsMargins(0, 0, 0, 0)
         grid.setSpacing(16)
-        grid.addWidget(self._lens_card(), 0, 0)
+        grid.addWidget(self._lens_card(), 0, 0, 2, 1)
         grid.addWidget(self._base_card(), 0, 1)
-        grid.addWidget(self._plate_card(), 1, 0)
-        grid.addWidget(self._accuracy_card(), 1, 1)
+        grid.addWidget(self._plate_card(), 1, 1)
         grid.setRowStretch(2, 1)
         grid.setColumnStretch(0, 1)
         grid.setColumnStretch(1, 1)
 
+        main.camera_changed.connect(self.fill_lens_rows)
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.update_chips)
         self.timer.start(400)
@@ -64,46 +61,38 @@ class CalibrationPage(QWidget):
 
     def fill_lens_rows(self):
         while self.lens_rows.count():
-            w = self.lens_rows.takeAt(0).widget()
-            if w:
-                w.deleteLater()
-        size = self.main.camera.frame_size()
-        for z in self.s.get("z_presets_mm"):
-            calib = self.main.calib_store.get(z, size)
-            row = QWidget()
-            rl = QHBoxLayout(row)
-            rl.setContentsMargins(0, 10, 0, 10)
-            rl.addWidget(label(f"{z / 10:g} {self.t('cm')}"), 1)
-            st = label(self.t("calibrated") + f" ({calib['rms']:.2f} px)" if calib else self.t("not_yet"),
-                       "Ok" if calib else "Muted")
-            rl.addWidget(st, 2)
-            b = button(self.t("redo") if calib else self.t("start"), on_click=lambda _=False, zz=z: self.on_start(zz))
-            b.setEnabled(self.session is None)
-            rl.addWidget(b)
-            line = QFrame()
-            line.setFrameShape(QFrame.Shape.HLine)
-            line.setStyleSheet(f"color: {self.p['border']};")
-            self.lens_rows.addWidget(line)
-            self.lens_rows.addWidget(row)
+            item = self.lens_rows.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+        calib = self.main.calib_store.lens(self.main.camera.frame_size())
+        row = QWidget()
+        rl = QHBoxLayout(row)
+        rl.setContentsMargins(0, 6, 0, 6)
+        rl.addWidget(label(self.t("lens")), 1)
+        st = label(self.t("calibrated") + f" ({calib['rms']:.2f} px)" if calib else self.t("not_yet"),
+                   "Ok" if calib else "Muted")
+        rl.addWidget(st, 2)
+        b = button(self.t("redo") if calib else self.t("start"), on_click=self.on_start)
+        b.setEnabled(self.session is None and (self.main.camera_ok or self.main.camera_demo))
+        rl.addWidget(b)
+        self.lens_rows.addWidget(row)
 
     def _lens_message(self, text, error=False):
         self.lens_msg.setText(text)
         self.lens_msg.setObjectName("MessageError" if error else "Message")
         repolish(self.lens_msg)
 
-    def on_start(self, z):
-        esp, cam = self.main.esp, self.main.camera
+    def on_start(self):
+        cam = self.main.camera
         self._lens_message("")
 
         def job():
-            esp.move_to(z)
             return cam.autofocus_then_lock()
 
         def done(focus):
-            self.s.set("z_preset_mm", int(z))
-            self.session, self.session_z, self.session_focus = CalibrationSession(), z, focus
+            self.session, self.session_focus = CalibrationSession(), focus
             self.session_box.show()
-            self.session_title.setText(f"{z / 10:g} {self.t('cm')}")
+            self.session_title.setText(f"{self.t('camera_height')}: {self.s.get('camera_height_cm')} {self.t('cm')}")
             self._update_session()
             self.fill_lens_rows()
 
@@ -129,7 +118,7 @@ class CalibrationPage(QWidget):
         run_task(lambda: sess.add(frame), done, lambda e: self._lens_message(str(e), True))
 
     def on_finish(self):
-        sess, z, focus = self.session, self.session_z, getattr(self, "session_focus", None)
+        sess, focus = self.session, getattr(self, "session_focus", None)
         if not sess:
             return
         self.add_btn.setEnabled(False)
@@ -138,10 +127,13 @@ class CalibrationPage(QWidget):
         def job():
             calib = sess.solve()
             calib["focus"] = focus
-            self.main.calib_store.put(z, calib)
+            self.main.calib_store.set_lens(calib)
             return calib
 
         def done(calib):
+            if calib.get("focus") is not None:          # keep this focus from now on
+                self.s.set("focus_value", float(calib["focus"]))
+                self.s.set("lock_focus", True)
             self.on_cancel()
             self._lens_message(self.t("cal_done", err=f"{calib['rms']:.2f}"))
 
@@ -201,8 +193,7 @@ class CalibrationPage(QWidget):
 
         def job():
             frame, _ = cam.latest()
-            calib = store.get(s.get("z_preset_mm"), cam.frame_size())
-            return measure.build_base_map(frame, s, calib)
+            return measure.build_base_map(frame, s, store.lens(cam.frame_size()))
 
         run_task(job, lambda bm: self._msg(self.base_msg, self.t("base_ok", mmpx=f"{bm.mm_per_px:.3f}")),
                  lambda e: self._msg(self.base_msg, self._err_text(e), True))
@@ -235,9 +226,8 @@ class CalibrationPage(QWidget):
 
         def job():
             frame = cam.wait_new_frames(3)
-            calib = store.get(s.get("z_preset_mm"), cam.frame_size())
-            bm = measure.build_base_map(frame, s, calib)
-            return measure.measure_height(frame, bm, s, float(s.get("z_preset_mm")), clamp=False)
+            bm = measure.build_base_map(frame, s, store.lens(cam.frame_size()))
+            return measure.measure_height(frame, bm, s, s.camera_height_mm(), clamp=False)
 
         def done(h):
             self._demo_mode("item")
@@ -246,51 +236,5 @@ class CalibrationPage(QWidget):
         def fail(e):
             self._demo_mode("item")
             self._msg(self.plate_msg, self._err_text(e), True)
-
-        run_task(job, done, fail)
-
-    # ---------- 4. accuracy ----------
-    def _accuracy_card(self):
-        c, lay = card(self.t("cal4"))
-        lay.addWidget(label(self.t("cal4_desc"), "Muted", wrap=True))
-        box = QFrame()
-        box.setObjectName("Inset")
-        g = QGridLayout(box)
-        g.setContentsMargins(12, 12, 12, 12)
-        g.addWidget(label(self.t("expected"), "Hint"), 0, 0)
-        g.addWidget(label(self.t("measured"), "Hint"), 0, 1)
-        exp = label(f"{BANK_CARD[0]:.2f} × {BANK_CARD[1]:.2f}")
-        exp.setStyleSheet("font-family: Consolas, monospace; font-weight: 600;")
-        g.addWidget(exp, 1, 0)
-        self.acc_value = label(self.t("not_run"), "Muted")
-        g.addWidget(self.acc_value, 1, 1)
-        lay.addWidget(box)
-        lay.addWidget(button(self.t("run_check"), "Primary", self.on_accuracy))
-        self.acc_msg = label("", "Message", wrap=True)
-        lay.addWidget(self.acc_msg)
-        lay.addStretch(1)
-        return c
-
-    def on_accuracy(self):
-        cam, s, store = self.main.camera, self.s, self.main.calib_store
-        self._demo_mode("card")
-
-        def job():
-            frame = cam.wait_new_frames(3)
-            calib = store.get(s.get("z_preset_mm"), cam.frame_size())
-            bm = measure.build_base_map(frame, s, calib)
-            return measure.measure_outline(frame, None, bm, 0.8, float(s.get("z_preset_mm")))
-
-        def done(r):
-            self._demo_mode("item")
-            dl, dw = r["length"] - BANK_CARD[0], r["width"] - BANK_CARD[1]
-            self.acc_value.setText(f"{r['length']:.2f} × {r['width']:.2f}  ({dl:+.2f} / {dw:+.2f})")
-            self.acc_value.setObjectName("Ok" if max(abs(dl), abs(dw)) <= 0.5 else "Bad")
-            repolish(self.acc_value)
-            self._msg(self.acc_msg, "")
-
-        def fail(e):
-            self._demo_mode("item")
-            self._msg(self.acc_msg, self._err_text(e), True)
 
         run_task(job, done, fail)

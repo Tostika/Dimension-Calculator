@@ -3,8 +3,8 @@ import os
 
 import numpy as np
 from PySide6.QtCore import Qt, QTimer
-from PySide6.QtWidgets import (QCheckBox, QFileDialog, QFrame, QGridLayout, QHBoxLayout, QSlider, QVBoxLayout,
-                               QWidget)
+from PySide6.QtWidgets import (QCheckBox, QFileDialog, QFrame, QGridLayout, QHBoxLayout, QSlider, QSpinBox,
+                               QVBoxLayout, QWidget)
 
 from .. import export
 from ..devices.camera import PREVIEW_WIDTH
@@ -65,13 +65,16 @@ class ScanPage(QWidget):
         self._led_timer.setSingleShot(True)
         self._led_timer.setInterval(120)
         self._led_timer.timeout.connect(lambda: self.main.set_led(self.led_slider.value()))
-        self.z_buttons = []
-        for z in self.s.get("z_presets_mm"):
-            b = button(f"{z / 10:g}", "Toggle", checkable=True)
-            b.setChecked(int(z) == int(self.s.get("z_preset_mm")))
-            b.clicked.connect(lambda _=False, zz=z: self.on_z(zz))
-            self.z_buttons.append((z, b))
-        self.home_btn = button(self.t("home"), on_click=self.on_home)
+        self.z_spin = QSpinBox()
+        self.z_spin.setRange(int(self.s.get("camera_height_min_cm")), int(self.s.get("camera_height_max_cm")))
+        self.z_spin.setSingleStep(1)
+        self.z_spin.setValue(int(self.s.get("camera_height_cm")))
+        self.z_spin.setMinimumWidth(80)
+        self.z_set_btn = button(self.t("set_height"), on_click=self.on_set_height)
+        self.z_measured = label("", "Hint", wrap=True)
+        self._z_timer = QTimer(self)
+        self._z_timer.timeout.connect(self.update_measured_height)
+        self._z_timer.start(700)
 
         if self.s.get("scan_layout") == "wide":
             outer.addWidget(self._wide(), 1)
@@ -123,14 +126,18 @@ class ScanPage(QWidget):
         cb.toggled.connect(lambda v: self.s.set("remove_ambient", bool(v)))
         return cb
 
-    def _z_row(self):
+    def _z_row(self, with_measured=True):
         w = QWidget()
-        lay = QHBoxLayout(w)
+        lay = QVBoxLayout(w)
         lay.setContentsMargins(0, 0, 0, 0)
         lay.setSpacing(6)
-        for _, b in self.z_buttons:
-            lay.addWidget(b, 1)
-        lay.addWidget(self.home_btn, 1)
+        row = QHBoxLayout()
+        row.setSpacing(8)
+        row.addWidget(self.z_spin, 1)
+        row.addWidget(self.z_set_btn, 1)
+        lay.addLayout(row)
+        if with_measured:
+            lay.addWidget(self.z_measured)
         return w
 
     def _controls_row(self):
@@ -194,9 +201,10 @@ class ScanPage(QWidget):
         cl.setContentsMargins(14, 8, 14, 8)
         cl.addWidget(self._light_block())
         dock.addWidget(c, 3)
-        c, cl = card()
+        c, cl = card(spacing=2)
         cl.setContentsMargins(14, 8, 14, 8)
-        cl.addWidget(self._z_row())
+        cl.addWidget(label(self.t("camera_height_cm"), "Hint"))
+        cl.addWidget(self._z_row(with_measured=False))
         dock.addWidget(c, 3)
         for b, stretch in ((self.primary, 3), (self.export_btn, 2), (self.new_btn, 2)):
             b.setMinimumHeight(64)
@@ -225,11 +233,12 @@ class ScanPage(QWidget):
             repolish(f)
         self.primary.setText({1: self.t("capture_outline"), 2: self.t("capture_height"), 3: self.t("save")}[self.step])
         has_camera = self.main.camera_ok or self.main.camera_demo
-        self.primary.setEnabled(not self.busy and (has_camera or self.step == 3))
-        self.export_btn.setEnabled(self.result is not None and not self.busy)
-        for z, b in self.z_buttons:
-            b.setEnabled(not self.busy)
-        self.home_btn.setEnabled(not self.busy)
+        ready = has_camera and not self.busy
+        self.primary.setEnabled(ready)
+        self.export_btn.setEnabled(ready and self.result is not None)
+        self.new_btn.setEnabled(ready and (self.step > 1 or self.result is not None))
+        self.z_spin.setEnabled(not self.busy)
+        self.z_set_btn.setEnabled(not self.busy)
         r = self.result
         e = self.t("empty_value")
         self.val["length"].setText(f"{r['length']:.1f}" if r else e)
@@ -267,8 +276,7 @@ class ScanPage(QWidget):
 
     # ---------- actions ----------
     def _calib(self):
-        size = self.main.camera.frame_size()
-        return self.main.calib_store.get(self.s.get("z_preset_mm"), size)
+        return self.main.calib_store.lens(self.main.camera.frame_size())
 
     def _set_busy(self, v):
         self.busy = v
@@ -292,7 +300,7 @@ class ScanPage(QWidget):
     def capture_outline(self):
         cam, s, main = self.main.camera, self.s, self.main
         calib = self._calib()
-        z = float(s.get("z_preset_mm"))
+        z = s.camera_height_mm()
 
         def job():
             level = int(s.get("led_brightness"))
@@ -320,7 +328,7 @@ class ScanPage(QWidget):
 
     def capture_height(self):
         cam, s = self.main.camera, self.s
-        z = float(s.get("z_preset_mm"))
+        z = s.camera_height_mm()
         bm, (on, off) = self.base_map, self.frames
 
         def job():
@@ -363,27 +371,22 @@ class ScanPage(QWidget):
         self.s.set("led_brightness", int(v))
         self._led_timer.start()
 
-    def on_z(self, z):
-        for zz, b in self.z_buttons:
-            b.setChecked(zz == z)
-        esp, s, store, cam = self.main.esp, self.s, self.main.calib_store, self.main.camera
+    def update_measured_height(self):
+        h = self.main.live_height_mm
+        self.z_measured.setText(self.t("height_measured", cm=f"{h / 10:.1f}") if h else self.t("height_unknown"))
+
+    def on_set_height(self):
+        cm = int(self.z_spin.value())
+        esp, s = self.main.esp, self.s
 
         def job():
-            esp.move_to(z)
-            c = store.get(z, cam.frame_size())
-            if c and c.get("focus") is not None:
-                cam.set_focus(c["focus"])
-            return True
+            esp.move_to(cm * 10)
+            return cm
 
         def done(_):
-            s.set("z_preset_mm", int(z))
+            s.set("camera_height_cm", cm)
             self._set_busy(False)
             self.reset()
 
         self._set_busy(True)
         run_task(job, done, self._fail)
-
-    def on_home(self):
-        esp = self.main.esp
-        self._set_busy(True)
-        run_task(esp.home, lambda _: self._set_busy(False), self._fail)

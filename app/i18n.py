@@ -6,7 +6,7 @@ To fix a label, change the text here only; every screen reads from this table.
 
 TEXT = {
     # general
-    "app_title": {"ka": "განზომილების საზომი მოწყობილობა", "en": "განზომილების საზომი მოწყობილობა"},
+    "app_title": {"ka": "განზომილების საზომი მოწყობილობა", "en": "Dimension Calculator"},
     "app_sub": {"ka": "ბრტყელი ნივთების გაზომვა", "en": "Dimension measuring device"},
     "language": {"ka": "ენა", "en": "Language"},
     "mm": {"ka": "მმ", "en": "mm"},
@@ -36,7 +36,7 @@ TEXT = {
 
     # scan steps
     "step1": {"ka": "ნაბიჯი 1. კონტური", "en": "Step 1. Outline"},
-    "step1_do": {"ka": "დადეთ ნივთი ბაზაზე მარტო", "en": "Place the item alone on the base"},
+    "step1_do": {"ka": "განათავსეთ ნივთი მოწყობილობაზე", "en": "Place the item on the device"},
     "step1_done": {"ka": "კონტური გადაღებულია", "en": "Outline captured"},
     "step2": {"ka": "ნაბიჯი 2. სიმაღლე", "en": "Step 2. Height"},
     "step2_do": {"ka": "ნივთს ზემოდან დაადეთ მარკერიანი ბარათი", "en": "Put the marker card on top of the item"},
@@ -60,6 +60,9 @@ TEXT = {
     "remove_ambient": {"ka": "ოთახის განათების გამორიცხვა", "en": "Remove room light"},
     "camera_height": {"ka": "კამერის სიმაღლე", "en": "Camera height"},
     "camera_height_cm": {"ka": "კამერის სიმაღლე (სმ)", "en": "Camera height (cm)"},
+    "set_height": {"ka": "დაყენება", "en": "Set"},
+    "height_measured": {"ka": "მარკერებით გაზომილი: {cm} სმ", "en": "Measured from the markers: {cm} cm"},
+    "height_unknown": {"ka": "ავტომატური გაზომვისთვის საჭიროა ლინზის კალიბრაცია.", "en": "Needs lens calibration to be measured automatically."},
     "home": {"ka": "საწყისი პოზიცია", "en": "Home"},
     "saved_as": {"ka": "შენახულია სახელით {name}", "en": "Saved as {name}"},
     "exported_to": {"ka": "DXF შენახულია: {path}", "en": "DXF saved: {path}"},
@@ -77,7 +80,8 @@ TEXT = {
     "col_size": {"ka": "ზომა (მმ)", "en": "Size (mm)"},
     "col_files": {"ka": "ფაილები", "en": "Files"},
     "no_match": {"ka": "ამ სახელით შენახული ნივთი ვერ მოიძებნა.", "en": "No saved items match this name."},
-    "library_empty": {"ka": "ბიბლიოთეკა ცარიელია. გააკეთეთ პირველი სკანირება.", "en": "The library is empty. Make your first scan."},
+    "library_empty": {"ka": "ბიბლიოთეკა ცარიელია", "en": "The library is empty"},
+    "library_empty_hint": {"ka": "გააკეთეთ პირველი სკანირება და შეინახეთ. ის აქ გამოჩნდება.", "en": "Make your first scan and save it. It will show up here."},
     "name_label": {"ka": "სახელი", "en": "Name"},
     "rename_hint": {"ka": "ახალი სკანები ინახება სახელით item1, item2 და ა.შ. სახელის შესაცვლელად აქ ჩაწერეთ ახალი სახელი.",
                     "en": "New scans are saved as item1, item2 and so on. Type a new name here to rename."},
@@ -87,8 +91,9 @@ TEXT = {
 
     # calibration
     "cal1": {"ka": "1. ლინზის კორექცია", "en": "1. Lens correction"},
-    "cal1_desc": {"ka": "დაბეჭდილი ჭადრაკის დაფა კამერის ქვეშ დაახლოებით 15 სხვადასხვა პოზიციაში დაიჭირეთ. ეს კეთდება ერთხელ, კამერის თითოეულ სიმაღლეზე, ჩაკეტილი ფოკუსით.",
-                  "en": "Hold the printed checkerboard under the camera in about 15 different positions. Done once per camera height, with focus locked."},
+    "cal1_desc": {"ka": "დაბეჭდილი ჭადრაკის დაფა კამერის ქვეშ დაახლოებით 15 სხვადასხვა პოზიციაში დაიჭირეთ. საკმარისია ერთხელ, კამერის ნებისმიერ სიმაღლეზე 35-დან 40 სმ-მდე. ამის შემდეგ ფოკუსი ჩაიკეტება და კამერის სიმაღლე ავტომატურად გაიზომება.",
+                  "en": "Hold the printed checkerboard under the camera in about 15 different positions. Done once, at any camera height from 35 to 40 cm. After that the focus is locked and the camera height is measured automatically."},
+    "lens": {"ka": "ლინზა", "en": "Lens"},
     "calibrated": {"ka": "დაკალიბრებულია", "en": "Calibrated"},
     "not_yet": {"ka": "ჯერ არ არის", "en": "Not yet"},
     "redo": {"ka": "თავიდან", "en": "Redo"},
@@ -151,7 +156,12 @@ TEXT = {
     "refresh": {"ka": "განახლება", "en": "Refresh"},
     "reconnect": {"ka": "დაკავშირება", "en": "Connect"},
     "test_leds": {"ka": "LED-ების შემოწმება", "en": "Test LEDs"},
-    "home_camera": {"ka": "კამერა საწყის პოზიციაზე", "en": "Home camera"},
+    "home_camera": {"ka": "საწყისი პოზიციის პოვნა", "en": "Find start position"},
+    "home_hint": {"ka": "კამერა მაღლა ადის, სანამ ზედა გადამრთველს არ შეეხება. ასე ESP32 იგებს, სად არის კამერა. ეს ავტომატურად ხდება პირველი მოძრაობისას, ხელით საჭიროა მხოლოდ, თუ კამერას ხელით გადაადგილებთ.",
+                  "en": "The camera moves up until it touches the top switch, so the ESP32 knows where it is. This happens by itself before the first move; you only need it if you moved the camera by hand."},
+    "camera_desc": {"ka": "აპლიკაცია თავად პოულობს 4K კამერას (EMEET C960). ფოკუსი ავტომატურად ჩაიკეტება ლინზის კალიბრაციის შემდეგ.",
+                    "en": "The app finds the 4K camera (EMEET C960) by itself. Focus is locked automatically after lens calibration."},
+    "camera_found": {"ka": "ნაპოვნია კამერა: {w} × {h}", "en": "Camera found: {w} × {h}"},
     "saving": {"ka": "შენახვა", "en": "Saving"},
     "export_folder": {"ka": "ექსპორტის საქაღალდე", "en": "Export folder"},
     "choose": {"ka": "არჩევა", "en": "Choose"},

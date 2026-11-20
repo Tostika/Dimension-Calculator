@@ -2,7 +2,7 @@
 from PySide6.QtCore import QRectF, QSize, Qt
 from PySide6.QtGui import QColor, QIcon, QPainter, QPen, QPixmap
 from PySide6.QtWidgets import (QCheckBox, QColorDialog, QComboBox, QFileDialog, QFrame, QGridLayout, QHBoxLayout,
-                               QLineEdit, QPushButton, QSpinBox, QVBoxLayout, QWidget)
+                               QLineEdit, QPushButton, QVBoxLayout, QWidget)
 
 from .. import theme
 from ..devices.esp32 import list_ports
@@ -227,33 +227,16 @@ class SettingsPage(QWidget):
     # ---------- camera ----------
     def _camera(self):
         c, lay = card(self.t("camera"))
-        lay.addWidget(label(self.t("camera_number")))
-        idx = QSpinBox()
-        idx.setRange(0, 9)
-        idx.setValue(int(self.s.get("camera_index")))
-        idx.valueChanged.connect(lambda v: self._camera_setting("camera_index", int(v)))
-        lay.addWidget(idx)
-        lay.addWidget(label(self.t("resolution")))
-        res = QComboBox()
-        for key, text in (("4k", "3840 × 2160 (4K)"), ("1440", "2560 × 1440"), ("1080", "1920 × 1080")):
-            res.addItem(text, key)
-        res.setCurrentIndex(max(0, res.findData(self.s.get("resolution"))))
-        res.currentIndexChanged.connect(lambda _: self._camera_setting("resolution", res.currentData()))
-        lay.addWidget(res)
-        for key, text in (("lock_focus", "lock_focus"), ("lock_exposure", "lock_exposure")):
-            cb = QCheckBox(self.t(text))
-            cb.setChecked(bool(self.s.get(key)))
-            cb.toggled.connect(lambda v, k=key: self._camera_setting(k, bool(v)))
-            lay.addWidget(cb)
+        lay.addWidget(label(self.t("camera_desc"), "Muted", wrap=True))
+        size = self.main.camera.frame_size() if self.main.camera_ok else None
+        info = label(self.t("camera_found", w=size[0], h=size[1]) if size else f"{self.t('camera')}: {self.t('not_connected')}",
+                     "Ok" if size else "Muted")
+        lay.addWidget(info)
         demo = QCheckBox(self.t("demo_camera_setting"))
         demo.setChecked(bool(self.s.get("demo_camera")))
         demo.toggled.connect(lambda v: self.s.set("demo_camera", bool(v)))   # the camera thread picks it up live
         lay.addWidget(demo)
         return c
-
-    def _camera_setting(self, key, value):
-        self.s.set(key, value)
-        self.main.restart_camera()
 
     # ---------- ESP32 ----------
     def _esp(self):
@@ -270,6 +253,7 @@ class SettingsPage(QWidget):
         row2.addWidget(button(self.t("test_leds"), on_click=self.on_test_leds))
         row2.addWidget(button(self.t("home_camera"), on_click=lambda: run_task(self.main.esp.home)))
         lay.addLayout(row2)
+        lay.addWidget(label(self.t("home_hint"), "Hint", wrap=True))
         self.esp_msg = label("", "Message", wrap=True)
         lay.addWidget(self.esp_msg)
         self.update_esp_msg()

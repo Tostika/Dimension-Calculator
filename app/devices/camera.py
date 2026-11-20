@@ -29,6 +29,7 @@ class CameraThread(QThread):
         self._pending = []           # property changes to apply inside the thread
         self.is_demo = False
         self.demo = None
+        self._small = {}             # camera index -> time it was found to be a small (non-4K) camera
 
     # ---------- used by other threads ----------
     def latest(self):
@@ -70,33 +71,57 @@ class CameraThread(QThread):
         self.wait(3000)
 
     # ---------- thread ----------
-    def _open(self):
-        idx = int(self.settings.get("camera_index"))
+    def _try_index(self, idx):
         backend = cv2.CAP_DSHOW if sys.platform.startswith("win") else cv2.CAP_ANY
         cap = cv2.VideoCapture(idx, backend)
         if not cap.isOpened():
-            return None
+            cap.release()
+            return None, 0
         w, h = RESOLUTIONS.get(self.settings.get("resolution"), RESOLUTIONS["4k"])
         cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))   # without MJPG, 4K usually falls back to a tiny size
         cap.set(cv2.CAP_PROP_FRAME_WIDTH, w)
         cap.set(cv2.CAP_PROP_FRAME_HEIGHT, h)
         cap.set(cv2.CAP_PROP_FPS, 30)
         cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+        ok, frame = cap.read()
+        if not ok or frame is None:
+            cap.release()
+            return None, 0
+        return cap, frame.shape[1]
+
+    def _configure(self, cap):
         if self.settings.get("lock_focus"):
             cap.set(cv2.CAP_PROP_AUTOFOCUS, 0)
             cap.set(cv2.CAP_PROP_FOCUS, float(self.settings.get("focus_value")))
         else:
             cap.set(cv2.CAP_PROP_AUTOFOCUS, 1)
         if self.settings.get("lock_exposure"):
-            # DirectShow: 0.25 = manual. Exposure is a power of two in seconds (-6 = 1/64 s).
-            cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.25)
+            cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.25)       # DirectShow: 0.25 = manual
             cap.set(cv2.CAP_PROP_EXPOSURE, float(self.settings.get("exposure_value")))
             cap.set(cv2.CAP_PROP_AUTO_WB, 0)
-        ok, frame = cap.read()
-        if not ok or frame is None:
+        else:
+            cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.75)       # DirectShow: 0.75 = automatic
+
+    def _open(self):
+        """Finds the measuring camera by itself: the first one that gives a 4K-class picture.
+        A laptop's built-in webcam is skipped (and only re-checked every 30 s)."""
+        min_w = int(self.settings.get("min_camera_width"))
+        last = int(self.settings.get("last_camera_index"))
+        now = time.time()
+        for idx in [last] + [i for i in range(4) if i != last]:
+            if now - self._small.get(idx, -1e9) < 30:
+                continue
+            cap, width = self._try_index(idx)
+            if cap is None:
+                continue
+            if width >= min_w:
+                self._configure(cap)
+                if idx != last:
+                    self.settings.set("last_camera_index", idx)
+                return cap
             cap.release()
-            return None
-        return cap
+            self._small[idx] = now
+        return None
 
     def _apply_pending(self):
         while self._pending:
@@ -183,19 +208,20 @@ class DemoScene:
         self._cache = {}
 
     def frame(self):
-        key = (self.mode, round(self.led, 2))
+        cam_h = float(self.scene.get("camera_height_cm")) * 10.0  # follows the height set in the app
+        key = (self.mode, round(self.led, 2), cam_h)
         if key not in self._cache:
             light = 0.35 + 0.65 * self.led                      # room light + our LEDs
             if self.mode == "item":
-                f = self.scene.render(with_item=True, light=light, noise_seed=None)
+                f = self.scene.render(with_item=True, light=light, noise_seed=None, cam_h=cam_h)
             elif self.mode == "plate":
-                f = self.scene.render(with_item=True, with_plate=True, light=light, noise_seed=None)
+                f = self.scene.render(with_item=True, with_plate=True, light=light, noise_seed=None, cam_h=cam_h)
             elif self.mode == "plate_empty":
-                f = self.scene.render(with_item=False, with_plate=True, light=light, noise_seed=None)
+                f = self.scene.render(with_item=False, with_plate=True, light=light, noise_seed=None, cam_h=cam_h)
             elif self.mode == "card":
-                f = self.scene.render(item_h=0.8, item=(85.6, 53.98), item_center=(150, 95), light=light, noise_seed=None)
+                f = self.scene.render(item_h=0.8, item=(85.6, 53.98), item_center=(150, 95), light=light, noise_seed=None, cam_h=cam_h)
             else:
-                f = self.scene.render(with_item=False, light=light, noise_seed=None)
+                f = self.scene.render(with_item=False, light=light, noise_seed=None, cam_h=cam_h)
             if len(self._cache) > 12:
                 self._cache.clear()
             self._cache[key] = f

@@ -56,7 +56,8 @@ class CalibrationSession:
 
 
 class CalibrationStore:
-    """calibration.json: {"300": {"K":..., "dist":..., "rms":..., "size":[w,h]}, ...} keyed by camera height in mm."""
+    """calibration.json: {"lens": {"K":..., "dist":..., "rms":..., "size":[w,h], "focus":...}}.
+    One lens calibration is enough for the whole 35-40 cm range (focus is locked)."""
 
     def __init__(self, path):
         self.path = path
@@ -66,15 +67,25 @@ class CalibrationStore:
         except (FileNotFoundError, json.JSONDecodeError):
             self.data = {}
 
-    def get(self, z_mm, frame_size=None):
-        c = self.data.get(str(int(z_mm)))
+    def lens(self, frame_size=None):
+        c = self.data.get("lens")
         if c and frame_size and list(frame_size) != list(c.get("size", [])):
             return None                          # calibrated at another resolution: not valid
         return c
 
-    def put(self, z_mm, calib):
-        self.data[str(int(z_mm))] = calib
+    def set_lens(self, calib):
+        self.data["lens"] = calib
         tmp = self.path + ".tmp"
         with open(tmp, "w", encoding="utf-8") as f:
             json.dump(self.data, f, indent=2)
         os.replace(tmp, self.path)
+
+
+def scaled(calib, factor):
+    """The same lens calibration for a resized image (e.g. the small preview)."""
+    if not calib:
+        return None
+    K = np.asarray(calib["K"], np.float64).copy()
+    K[0, :] *= factor
+    K[1, :] *= factor
+    return {"K": K.tolist(), "dist": calib["dist"]}
