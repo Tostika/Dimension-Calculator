@@ -162,6 +162,7 @@ TEXT = {
     "camera_desc": {"ka": "აპლიკაცია თავად პოულობს 4K კამერას (EMEET C960). ფოკუსი ავტომატურად ჩაიკეტება ლინზის კალიბრაციის შემდეგ.",
                     "en": "The app finds the 4K camera (EMEET C960) by itself. Focus is locked automatically after lens calibration."},
     "camera_found": {"ka": "ნაპოვნია კამერა: {w} × {h}", "en": "Camera found: {w} × {h}"},
+    "cameras_seen": {"ka": "კომპიუტერი ხედავს: {names}", "en": "The computer sees: {names}"},
     "saving": {"ka": "შენახვა", "en": "Saving"},
     "export_folder": {"ka": "ექსპორტის საქაღალდე", "en": "Export folder"},
     "choose": {"ka": "არჩევა", "en": "Choose"},

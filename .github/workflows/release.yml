@@ -34,8 +34,11 @@ jobs:
       - name: Check the measuring code
         run: python -m tests.test_vision
 
+      - name: Check that camera names can be read
+        run: python -c "from app.devices.camera import camera_names; n = camera_names(); print('camera names:', n); assert n is not None"
+
       - name: Build DimensionDevice.exe
-        run: pyinstaller --noconfirm --windowed --name DimensionDevice --add-data "app/fonts;app/fonts" main.py
+        run: pyinstaller --noconfirm --windowed --name DimensionDevice --add-data "app/fonts;app/fonts" --collect-submodules pygrabber --hidden-import comtypes.stream main.py
 
       - name: Pack the release zip
         shell: pwsh

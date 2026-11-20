@@ -221,6 +221,8 @@ class MainWindow(QMainWindow):
                 sc = QScrollArea()
                 sc.setWidgetResizable(True)
                 sc.setFrameShape(QFrame.Shape.NoFrame)
+                sc.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)   # never sideways
+                sc.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)     # mouse wheel still scrolls
                 sc.setWidget(page)
                 self.stack.addWidget(sc)
         cl.addWidget(self.stack, 1)

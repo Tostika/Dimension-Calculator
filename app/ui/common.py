@@ -2,9 +2,9 @@
 import traceback
 
 import numpy as np
-from PySide6.QtCore import QObject, QPointF, QRectF, QRunnable, Qt, QThreadPool, Signal
+from PySide6.QtCore import QObject, QPointF, QRectF, QRunnable, QSize, Qt, QThreadPool, Signal
 from PySide6.QtGui import QColor, QFontMetrics, QImage, QPainter, QPainterPath, QPen, QPolygonF
-from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QPushButton, QSizePolicy, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QCheckBox, QFrame, QHBoxLayout, QLabel, QPushButton, QSizePolicy, QVBoxLayout, QWidget
 
 # ---------- background tasks ----------
 _alive = set()
@@ -67,6 +67,11 @@ class FitButton(QPushButton):
     def __init__(self, text=""):
         super().__init__(text)
         self._px = None
+        # may be narrower than its text: the font shrinks instead of the window growing
+        self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
+
+    def minimumSizeHint(self):
+        return QSize(48, super().minimumSizeHint().height())
 
     def setText(self, text):
         super().setText(text)
@@ -101,6 +106,25 @@ def button(text, name=None, on_click=None, checkable=False):
     if on_click:
         b.clicked.connect(on_click)
     return b
+
+
+class WrapCheck(QWidget):
+    """A checkbox whose text wraps onto more lines instead of being cut off."""
+
+    def __init__(self, text, checked=False, on_toggle=None):
+        super().__init__()
+        lay = QHBoxLayout(self)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.setSpacing(10)
+        self.checkbox = QCheckBox()
+        self.checkbox.setChecked(bool(checked))
+        self.text = label(text, wrap=True)
+        self.text.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.text.mousePressEvent = lambda e: self.checkbox.toggle()
+        lay.addWidget(self.checkbox, 0, Qt.AlignmentFlag.AlignTop)
+        lay.addWidget(self.text, 1)
+        if on_toggle:
+            self.checkbox.toggled.connect(on_toggle)
 
 
 def card(title=None, spacing=12, name="Card"):

@@ -1,12 +1,13 @@
 """Settings tab: appearance (themes, own colours, layout, corners), language, camera, ESP32, saving."""
 from PySide6.QtCore import QRectF, QSize, Qt
 from PySide6.QtGui import QColor, QIcon, QPainter, QPen, QPixmap
-from PySide6.QtWidgets import (QCheckBox, QColorDialog, QComboBox, QFileDialog, QFrame, QGridLayout, QHBoxLayout,
-                               QLineEdit, QPushButton, QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (QColorDialog, QComboBox, QFileDialog, QFrame, QGridLayout, QHBoxLayout,
+                               QLineEdit, QPushButton, QSizePolicy, QVBoxLayout, QWidget)
 
 from .. import theme
+from ..devices.camera import camera_names
 from ..devices.esp32 import list_ports
-from .common import button, card, label, run_task
+from .common import WrapCheck, button, card, label, run_task
 
 
 class ThemeButton(QPushButton):
@@ -17,7 +18,8 @@ class ThemeButton(QPushButton):
         self.name, self.c, self.ring, self.radius = name, colors, QColor(ring), radius
         self.setCheckable(True)
         self.setChecked(chosen)
-        self.setMinimumSize(150, 84)
+        self.setMinimumSize(120, 84)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setStyleSheet("border: 0; background: transparent;")
 
@@ -41,6 +43,41 @@ class ThemeButton(QPushButton):
         p.setFont(f)
         p.drawText(QRectF(r.x() + 12, r.y() + 40, r.width() - 20, r.height() - 44),
                    Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter | Qt.TextFlag.TextWordWrap, self.name)
+
+
+class OptionButton(QPushButton):
+    """Option drawn by hand: a small picture on top, the name below (wraps, never cut off)."""
+
+    def __init__(self, text, kind, p, chosen):
+        super().__init__()
+        self.text_, self.kind, self.p = text, kind, p
+        self.setCheckable(True)
+        self.setChecked(chosen)
+        self.setMinimumHeight(118)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setStyleSheet("border: 0; background: transparent;")
+
+    def minimumSizeHint(self):
+        return QSize(100, 118)
+
+    def paintEvent(self, _):
+        g = QPainter(self)
+        g.setRenderHint(QPainter.RenderHint.Antialiasing)
+        p = self.p
+        r = QRectF(self.rect()).adjusted(1.5, 1.5, -1.5, -1.5)
+        g.setPen(QPen(QColor(p["accent"] if self.isChecked() else p["border"]), 2))
+        g.setBrush(QColor(p["bg"]))
+        g.drawRoundedRect(r, p["r"], p["r"])
+        icon = layout_icon(self.kind, p).pixmap(QSize(96, 56))
+        g.drawPixmap(int(r.center().x() - 48), int(r.y() + 10), icon)
+        g.setPen(QColor(p["text"]))
+        f = g.font()
+        f.setPixelSize(13)
+        f.setBold(True)
+        g.setFont(f)
+        g.drawText(QRectF(r.x() + 8, r.y() + 70, r.width() - 16, r.height() - 74),
+                   Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop | Qt.TextFlag.TextWordWrap, self.text_)
 
 
 def layout_icon(kind, p):
@@ -82,7 +119,7 @@ class SettingsPage(QWidget):
         lay = QHBoxLayout(self)
         lay.setContentsMargins(0, 0, 0, 0)
         lay.setSpacing(16)
-        lay.addWidget(self._appearance(), 3, Qt.AlignmentFlag.AlignTop)
+        lay.addWidget(self._appearance(), 1, Qt.AlignmentFlag.AlignTop)
         right = QVBoxLayout()
         right.setSpacing(16)
         right.addWidget(self._language())
@@ -92,9 +129,8 @@ class SettingsPage(QWidget):
         right.addStretch(1)
         rw = QWidget()
         rw.setLayout(right)
-        rw.setMinimumWidth(320)
-        rw.setMaximumWidth(460)
-        lay.addWidget(rw, 2)
+        rw.setFixedWidth(330)
+        lay.addWidget(rw)
 
     # ---------- appearance ----------
     def _appearance(self):
@@ -168,11 +204,7 @@ class SettingsPage(QWidget):
         left.addWidget(label(self.t("scan_layout"), "SectionTitle"))
         opts = QHBoxLayout()
         for kind, key in (("side", "layout_side"), ("wide", "layout_wide")):
-            b = button(self.t(key), "Option", checkable=True)
-            b.setIcon(layout_icon(kind, self.p))
-            b.setIconSize(QSize(96, 56))
-            b.setMinimumHeight(80)
-            b.setChecked(self.s.get("scan_layout") == kind)
+            b = OptionButton(self.t(key), kind, self.p, self.s.get("scan_layout") == kind)
             b.clicked.connect(lambda _=False, k=kind: self.on_setting("scan_layout", k))
             opts.addWidget(b)
         left.addLayout(opts)
@@ -229,13 +261,17 @@ class SettingsPage(QWidget):
         c, lay = card(self.t("camera"))
         lay.addWidget(label(self.t("camera_desc"), "Muted", wrap=True))
         size = self.main.camera.frame_size() if self.main.camera_ok else None
-        info = label(self.t("camera_found", w=size[0], h=size[1]) if size else f"{self.t('camera')}: {self.t('not_connected')}",
-                     "Ok" if size else "Muted")
-        lay.addWidget(info)
-        demo = QCheckBox(self.t("demo_camera_setting"))
-        demo.setChecked(bool(self.s.get("demo_camera")))
-        demo.toggled.connect(lambda v: self.s.set("demo_camera", bool(v)))   # the camera thread picks it up live
-        lay.addWidget(demo)
+        name = self.main.camera.device_name or ""
+        text = (self.t("camera_found", w=size[0], h=size[1]) + (f"\n{name}" if name else "")) if size \
+            else f"{self.t('camera')}: {self.t('not_connected')}"
+        lay.addWidget(label(text, "Ok" if size else "Muted", wrap=True))
+        if not size:
+            names = camera_names()
+            if names:      # helps when the camera has an unexpected name
+                lay.addWidget(label(self.t("cameras_seen", names=", ".join(names)), "Hint", wrap=True))
+        # the camera thread picks this up live
+        lay.addWidget(WrapCheck(self.t("demo_camera_setting"), self.s.get("demo_camera"),
+                                lambda v: self.s.set("demo_camera", bool(v))))
         return c
 
     # ---------- ESP32 ----------
@@ -244,15 +280,15 @@ class SettingsPage(QWidget):
         lay.addWidget(label(self.t("port")))
         row = QHBoxLayout()
         self.port_box = QComboBox()
+        self.port_box.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
+        self.port_box.setMinimumContentsLength(8)
         self.fill_ports()
         row.addWidget(self.port_box, 1)
         row.addWidget(button(self.t("refresh"), on_click=self.fill_ports))
         lay.addLayout(row)
         lay.addWidget(button(self.t("reconnect"), "Primary", self.on_connect))
-        row2 = QHBoxLayout()
-        row2.addWidget(button(self.t("test_leds"), on_click=self.on_test_leds))
-        row2.addWidget(button(self.t("home_camera"), on_click=lambda: run_task(self.main.esp.home)))
-        lay.addLayout(row2)
+        lay.addWidget(button(self.t("test_leds"), on_click=self.on_test_leds))
+        lay.addWidget(button(self.t("home_camera"), on_click=lambda: run_task(self.main.esp.home)))
         lay.addWidget(label(self.t("home_hint"), "Hint", wrap=True))
         self.esp_msg = label("", "Message", wrap=True)
         lay.addWidget(self.esp_msg)
@@ -296,10 +332,8 @@ class SettingsPage(QWidget):
         row.addWidget(self.folder, 1)
         row.addWidget(button(self.t("choose"), on_click=self.on_choose_folder))
         lay.addLayout(row)
-        cb = QCheckBox(self.t("save_json"))
-        cb.setChecked(bool(self.s.get("save_json")))
-        cb.toggled.connect(lambda v: self.s.set("save_json", bool(v)))
-        lay.addWidget(cb)
+        lay.addWidget(WrapCheck(self.t("save_json"), self.s.get("save_json"),
+                                lambda v: self.s.set("save_json", bool(v))))
         return c
 
     def on_choose_folder(self):

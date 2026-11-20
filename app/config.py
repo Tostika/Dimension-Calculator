@@ -24,6 +24,7 @@ DEFAULTS = {
     "scan_layout": "side",       # "side" or "wide"
     "corners": "round",          # "round" or "sharp"
     "last_camera_index": 0,      # the app finds the camera itself; this only makes it look there first
+    "camera_name_hints": ["EMEET", "C960"],   # the camera is found by its name (Windows)
     "min_camera_width": 2560,    # only accept a camera that gives at least this width (the 4K C960, not a laptop webcam)
     "demo_camera": False,        # show a drawn test scene when no camera is connected
     "resolution": "4k",          # "4k", "1440", "1080"

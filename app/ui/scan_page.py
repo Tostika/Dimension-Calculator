@@ -3,13 +3,13 @@ import os
 
 import numpy as np
 from PySide6.QtCore import Qt, QTimer
-from PySide6.QtWidgets import (QCheckBox, QFileDialog, QFrame, QGridLayout, QHBoxLayout, QSlider, QSpinBox,
+from PySide6.QtWidgets import (QFileDialog, QFrame, QGridLayout, QHBoxLayout, QSlider, QSpinBox,
                                QVBoxLayout, QWidget)
 
 from .. import export
 from ..devices.camera import PREVIEW_WIDTH
 from ..vision import measure
-from .common import CameraView, button, card, label, repolish, run_task
+from .common import CameraView, WrapCheck, button, card, label, repolish, run_task
 
 
 class ScanPage(QWidget):
@@ -121,10 +121,8 @@ class ScanPage(QWidget):
         return w
 
     def _ambient_box(self):
-        cb = QCheckBox(self.t("remove_ambient"))
-        cb.setChecked(bool(self.s.get("remove_ambient")))
-        cb.toggled.connect(lambda v: self.s.set("remove_ambient", bool(v)))
-        return cb
+        return WrapCheck(self.t("remove_ambient"), self.s.get("remove_ambient"),
+                         lambda v: self.s.set("remove_ambient", bool(v)))
 
     def _z_row(self, with_measured=True):
         w = QWidget()
