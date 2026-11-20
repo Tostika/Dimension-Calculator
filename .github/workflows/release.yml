@@ -1,0 +1,54 @@
+# Builds the Windows app and publishes it as a GitHub Release.
+# Runs when a tag like v0.1.0 is pushed, or by hand from the Actions tab.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install libraries
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pyinstaller
+
+      - name: Check the measuring code
+        run: python -m tests.test_vision
+
+      - name: Build DimensionDevice.exe
+        run: pyinstaller --noconfirm --windowed --name DimensionDevice --add-data "app/fonts;app/fonts" main.py
+
+      - name: Pack the release zip
+        shell: pwsh
+        run: |
+          Copy-Item -Recurse print dist/DimensionDevice/print
+          Copy-Item -Recurse firmware dist/DimensionDevice/firmware
+          Copy-Item tools/freecad_import.FCMacro dist/DimensionDevice/
+          Compress-Archive -Path dist/DimensionDevice/* -DestinationPath DimensionDevice-windows.zip
+
+      - name: Publish the release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: DimensionDevice-windows.zip
+          generate_release_notes: true
+
+      - name: Keep the build (manual runs)
+        if: "!startsWith(github.ref, 'refs/tags/')"
+        uses: actions/upload-artifact@v4
+        with:
+          name: DimensionDevice-windows
+          path: DimensionDevice-windows.zip

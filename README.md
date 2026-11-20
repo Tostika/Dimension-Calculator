@@ -1,8 +1,11 @@
 # განზომილების საზომი მოწყობილობა (desktop app)
 
 ## Run it (Windows)
-1. Install Python 3.11 or newer from python.org (tick "Add python.exe to PATH").
-2. Double-click `run.bat`. The first time it installs the libraries (needs internet, a few minutes).
+**Easiest:** open [Releases](https://github.com/Tostika/Dimension-Calculator/releases), download
+`DimensionDevice-windows.zip`, unzip it and run `DimensionDevice.exe`. No Python needed.
+
+**From the code:** install Python 3.11 or newer from python.org (tick "Add python.exe to PATH"),
+then double-click `run.bat`. The first time it installs the libraries (needs internet, a few minutes).
 
 Without the camera or the ESP32 plugged in, the app still opens: it shows a **demo camera**
 (a drawn base with a phone on it) and a demo ESP32, so the whole flow can be tried.
@@ -38,9 +41,6 @@ Open `firmware/esp32_dimension/esp32_dimension.ino` in Arduino IDE, board "ESP32
 Pins: LED PWM 25, STEP 26, DIR 27, EN 14, limit switch 33 (to GND). After building, measure the lens
 height above the base when the limit switch clicks and put it in `Z_HOME_MM`.
 
-## Make an .exe (optional)
-```
-.venv\Scripts\activate
-pip install pyinstaller
-pyinstaller --noconfirm --windowed --name DimensionDevice main.py
-```
+## New release
+Push a tag such as `v0.2.0`. GitHub Actions builds `DimensionDevice.exe` on Windows and attaches
+`DimensionDevice-windows.zip` (app, print sheets, firmware, FreeCAD macro) to a new Release.
