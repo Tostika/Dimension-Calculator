@@ -1,0 +1,175 @@
+"""All visible text of the app, in Georgian (ka) and English (en).
+
+Rule for this file: no long dashes in any label. Use a full stop, a colon or commas instead.
+To fix a label, change the text here only; every screen reads from this table.
+"""
+
+TEXT = {
+    # general
+    "app_title": {"ka": "განზომილების საზომი მოწყობილობა", "en": "განზომილების საზომი მოწყობილობა"},
+    "app_sub": {"ka": "ბრტყელი ნივთების გაზომვა", "en": "Dimension measuring device"},
+    "language": {"ka": "ენა", "en": "Language"},
+    "mm": {"ka": "მმ", "en": "mm"},
+    "cm": {"ka": "სმ", "en": "cm"},
+    "empty_value": {"ka": "-", "en": "-"},
+
+    # tabs
+    "tab_scan": {"ka": "სკანირება", "en": "Scan"},
+    "tab_library": {"ka": "ბიბლიოთეკა", "en": "Library"},
+    "tab_calibration": {"ka": "კალიბრაცია", "en": "Calibration"},
+    "tab_settings": {"ka": "პარამეტრები", "en": "Settings"},
+    "desc_scan": {"ka": "გაზომეთ ბრტყელი ნივთი სამ ნაბიჯად.", "en": "Measure a flat item in three steps."},
+    "desc_library": {"ka": "ყველა შენახული ნივთი, DXF და JSON ფაილებით.", "en": "Every item you saved, with its DXF and JSON files."},
+    "desc_calibration": {"ka": "საკმარისია ერთხელ დაყენება. თავიდან გააკეთეთ მხოლოდ მაშინ, თუ კამერას გადაადგილებთ ან მის სიმაღლეს შეცვლით.",
+                         "en": "Set up once. Redo it only if you move the camera or change its height."},
+    "desc_settings": {"ka": "ენა, მოწყობილობები, შენახვა და აპლიკაციის იერსახე.", "en": "Language, devices, saving and how the app looks."},
+
+    # status
+    "camera": {"ka": "კამერა", "en": "Camera"},
+    "base_markers": {"ka": "ბაზის მარკერები", "en": "Base markers"},
+    "connected": {"ka": "დაკავშირებულია", "en": "connected"},
+    "not_connected": {"ka": "არ არის დაკავშირებული", "en": "not connected"},
+    "demo_camera": {"ka": "სატესტო კამერა (კამერა ვერ მოიძებნა)", "en": "Demo camera (no camera found)"},
+    "live": {"ka": "პირდაპირი ხედი", "en": "LIVE"},
+
+    # scan steps
+    "step1": {"ka": "ნაბიჯი 1. კონტური", "en": "Step 1. Outline"},
+    "step1_do": {"ka": "დადეთ ნივთი ბაზაზე მარტო", "en": "Place the item alone on the base"},
+    "step1_done": {"ka": "კონტური გადაღებულია", "en": "Outline captured"},
+    "step2": {"ka": "ნაბიჯი 2. სიმაღლე", "en": "Step 2. Height"},
+    "step2_do": {"ka": "ნივთს ზემოდან დაადეთ მარკერიანი ბარათი", "en": "Put the marker card on top of the item"},
+    "step2_done": {"ka": "სიმაღლე გაზომილია", "en": "Height measured"},
+    "step3": {"ka": "ნაბიჯი 3. შენახვა", "en": "Step 3. Save"},
+    "step3_do": {"ka": "შეინახეთ ან გამოიტანეთ DXF", "en": "Save it or export the DXF"},
+    "waiting": {"ka": "მოლოდინში", "en": "Waiting"},
+    "now": {"ka": "ახლა", "en": "now"},
+
+    # scan panel
+    "result_mm": {"ka": "შედეგი (მმ)", "en": "Result (mm)"},
+    "length": {"ka": "სიგრძე", "en": "Length"},
+    "width": {"ka": "სიგანე", "en": "Width"},
+    "height": {"ka": "სიმაღლე", "en": "Height"},
+    "capture_outline": {"ka": "კონტურის გადაღება", "en": "Capture outline"},
+    "capture_height": {"ka": "სიმაღლის გაზომვა", "en": "Capture height"},
+    "new_scan": {"ka": "ახალი სკანირება", "en": "New scan"},
+    "export_dxf": {"ka": "DXF ექსპორტი", "en": "Export DXF"},
+    "save": {"ka": "შენახვა", "en": "Save"},
+    "led_brightness": {"ka": "LED სიკაშკაშე", "en": "LED brightness"},
+    "remove_ambient": {"ka": "ოთახის განათების გამორიცხვა (LED ჩართული და გამორთული)", "en": "Remove room light (LED on and off)"},
+    "camera_height": {"ka": "კამერის სიმაღლე", "en": "Camera height"},
+    "home": {"ka": "საწყისი პოზიცია", "en": "Home"},
+    "saved_as": {"ka": "შენახულია სახელით {name}", "en": "Saved as {name}"},
+    "exported_to": {"ka": "DXF შენახულია: {path}", "en": "DXF saved: {path}"},
+    "err_no_markers": {"ka": "ბაზის ოთხივე მარკერი არ ჩანს. შეამოწმეთ, რომ არაფერი ფარავს მათ.", "en": "Not all four base markers are visible. Check that nothing covers them."},
+    "err_no_item": {"ka": "ნივთი ვერ მოიძებნა. დადეთ ის ბაზის შუაში.", "en": "No item found. Place it in the middle of the base."},
+    "err_no_plate": {"ka": "მარკერიანი ბარათი ვერ მოიძებნა. დადეთ ის ნივთზე ბრტყლად.", "en": "Marker card not found. Lay it flat on the item."},
+    "err_tilt": {"ka": "ბარათი დახრილია ({deg}°). დადეთ ის ბრტყლად და სცადეთ თავიდან.", "en": "The card is tilted ({deg}°). Lay it flat and try again."},
+    "err_no_outline_yet": {"ka": "ჯერ გადაიღეთ კონტური.", "en": "Capture the outline first."},
+    "err_not_calibrated": {"ka": "ამ სიმაღლეზე ლინზა ჯერ არ არის დაკალიბრებული. შედეგი შეიძლება ნაკლებად ზუსტი იყოს.", "en": "The lens is not calibrated at this height yet. The result may be less accurate."},
+
+    # library
+    "search": {"ka": "ძებნა სახელით", "en": "Search by name"},
+    "items_count": {"ka": "{shown} / {total} ნივთი", "en": "{shown} / {total} items"},
+    "col_name": {"ka": "სახელი", "en": "Name"},
+    "col_size": {"ka": "ზომა (მმ)", "en": "Size (mm)"},
+    "col_files": {"ka": "ფაილები", "en": "Files"},
+    "no_match": {"ka": "ამ სახელით შენახული ნივთი ვერ მოიძებნა.", "en": "No saved items match this name."},
+    "library_empty": {"ka": "ბიბლიოთეკა ცარიელია. გააკეთეთ პირველი სკანირება.", "en": "The library is empty. Make your first scan."},
+    "name_label": {"ka": "სახელი", "en": "Name"},
+    "rename_hint": {"ka": "ახალი სკანები ინახება სახელით item1, item2 და ა.შ. სახელის შესაცვლელად აქ ჩაწერეთ ახალი სახელი.",
+                    "en": "New scans are saved as item1, item2 and so on. Type a new name here to rename."},
+    "open_folder": {"ka": "საქაღალდის გახსნა", "en": "Open folder"},
+    "delete": {"ka": "წაშლა", "en": "Delete"},
+    "delete_confirm": {"ka": "წავშალო {name} და მისი ფაილები?", "en": "Delete {name} and its files?"},
+
+    # calibration
+    "cal1": {"ka": "1. ლინზის კორექცია", "en": "1. Lens correction"},
+    "cal1_desc": {"ka": "დაბეჭდილი ჭადრაკის დაფა კამერის ქვეშ დაახლოებით 15 სხვადასხვა პოზიციაში დაიჭირეთ. ეს კეთდება ერთხელ, კამერის თითოეულ სიმაღლეზე, ჩაკეტილი ფოკუსით.",
+                  "en": "Hold the printed checkerboard under the camera in about 15 different positions. Done once per camera height, with focus locked."},
+    "calibrated": {"ka": "დაკალიბრებულია", "en": "Calibrated"},
+    "not_yet": {"ka": "ჯერ არ არის", "en": "Not yet"},
+    "redo": {"ka": "თავიდან", "en": "Redo"},
+    "start": {"ka": "დაწყება", "en": "Start"},
+    "take_photo": {"ka": "კადრის დამატება ({n}/15)", "en": "Add frame ({n}/15)"},
+    "finish": {"ka": "დასრულება", "en": "Finish"},
+    "cancel": {"ka": "გაუქმება", "en": "Cancel"},
+    "board_not_found": {"ka": "ჭადრაკის დაფა ვერ მოიძებნა ამ კადრში.", "en": "Checkerboard not found in this frame."},
+    "cal_done": {"ka": "კალიბრაცია დასრულდა. ცდომილება: {err} პიქსელი.", "en": "Calibration finished. Error: {err} px."},
+    "cal2": {"ka": "2. ბაზის მარკერები", "en": "2. Base markers"},
+    "cal2_desc": {"ka": "ოთხი კუთხის მარკერი (ID 0-3) კამერის პიქსელებს ბაზის ზედაპირზე მილიმეტრებად გარდაქმნის.",
+                  "en": "The four corner markers (IDs 0-3) turn camera pixels into millimetres on the base."},
+    "marker_size": {"ka": "დაბეჭდილი მარკერის ზომა (მმ)", "en": "Printed marker size (mm)"},
+    "check_base": {"ka": "ბაზის შემოწმება", "en": "Check base"},
+    "base_ok": {"ka": "ოთხივე მარკერი ნაპოვნია. 1 პიქსელი = {mmpx} მმ.", "en": "All four markers found. 1 pixel = {mmpx} mm."},
+    "cal3": {"ka": "3. სიმაღლის ბარათი", "en": "3. Height card"},
+    "cal3_desc": {"ka": "პატარა ბარათი 4-7 მარკერებით. მისი სისქე ავტომატურად აკლდება ყოველ გაზომილ სიმაღლეს.",
+                  "en": "The small card with markers 4-7. Its own thickness is taken off every height."},
+    "card_thickness": {"ka": "ბარათის სისქე (მმ)", "en": "Card thickness (mm)"},
+    "zero_check": {"ka": "ნულოვანი შემოწმება ცარიელ ბაზაზე", "en": "Zero check on empty base"},
+    "zero_result": {"ka": "ცარიელ ბაზაზე გაზომილი სიმაღლე: {h} მმ (უნდა იყოს 0-თან ახლოს).", "en": "Height measured on the empty base: {h} mm (should be close to 0)."},
+    "cal4": {"ka": "4. სიზუსტის შემოწმება", "en": "4. Accuracy check"},
+    "cal4_desc": {"ka": "გაზომეთ საბანკო ბარათი. მისი სტანდარტული ზომაა 85.60 × 53.98 მმ, ამიტომ სხვაობა გვიჩვენებს მოწყობილობის სიზუსტეს.",
+                  "en": "Measure a bank card. Its standard size is 85.60 × 53.98 mm, so the difference shows how accurate the device is."},
+    "expected": {"ka": "მოსალოდნელი", "en": "Expected"},
+    "measured": {"ka": "გაზომილი", "en": "Measured"},
+    "not_run": {"ka": "ჯერ არ ჩატარებულა", "en": "Not run yet"},
+    "run_check": {"ka": "შემოწმების დაწყება", "en": "Run check"},
+
+    # settings
+    "appearance": {"ka": "იერსახე", "en": "Appearance"},
+    "reset_default": {"ka": "ნაგულისხმევზე დაბრუნება", "en": "Reset to default"},
+    "theme": {"ka": "თემა", "en": "Theme"},
+    "own_colours": {"ka": "საკუთარი ფერები", "en": "Your own colours"},
+    "custom_in_use": {"ka": "(გამოიყენება საკუთარი თემა)", "en": "(custom theme in use)"},
+    "c_bg": {"ka": "ფონი", "en": "Background"},
+    "c_surface": {"ka": "პანელები", "en": "Panels"},
+    "c_text": {"ka": "ტექსტი", "en": "Text"},
+    "c_accent": {"ka": "აქცენტი", "en": "Accent"},
+    "pick_colour": {"ka": "აირჩიეთ ფერი", "en": "Pick a colour"},
+    "readability": {"ka": "წაკითხვადობის შემოწმება", "en": "Readability check"},
+    "r_text": {"ka": "ტექსტი ფონზე", "en": "Text on background"},
+    "r_accent": {"ka": "აქცენტი ფონზე", "en": "Accent on background"},
+    "r_button": {"ka": "ღილაკის ტექსტი აქცენტზე", "en": "Button text on accent"},
+    "reads_well": {"ka": "კარგად იკითხება", "en": "easy to read"},
+    "reads_badly": {"ka": "ცუდად იკითხება", "en": "too low"},
+    "scan_layout": {"ka": "სკანირების ეკრანის განლაგება", "en": "Scan screen layout"},
+    "layout_side": {"ka": "კამერა და გვერდითი პანელი", "en": "Camera and side panel"},
+    "layout_wide": {"ka": "ფართო კამერა", "en": "Wide camera"},
+    "corners": {"ka": "კუთხეები", "en": "Corners"},
+    "rounded": {"ka": "მომრგვალებული", "en": "Rounded"},
+    "sharp": {"ka": "სწორი", "en": "Sharp"},
+    "language_desc": {"ka": "ცვლის აპლიკაციის ყველა წარწერას. არჩევანი შეინახება.", "en": "Changes every label in the app. Your choice is saved."},
+    "resolution": {"ka": "გარჩევადობა", "en": "Resolution"},
+    "camera_number": {"ka": "კამერის ნომერი", "en": "Camera number"},
+    "lock_focus": {"ka": "ფოკუსის ჩაკეტვა", "en": "Lock focus"},
+    "lock_exposure": {"ka": "ექსპოზიციისა და თეთრის ბალანსის ჩაკეტვა", "en": "Lock exposure and white balance"},
+    "port": {"ka": "პორტი", "en": "Port"},
+    "refresh": {"ka": "განახლება", "en": "Refresh"},
+    "reconnect": {"ka": "დაკავშირება", "en": "Connect"},
+    "test_leds": {"ka": "LED-ების შემოწმება", "en": "Test LEDs"},
+    "home_camera": {"ka": "კამერა საწყის პოზიციაზე", "en": "Home camera"},
+    "saving": {"ka": "შენახვა", "en": "Saving"},
+    "export_folder": {"ka": "ექსპორტის საქაღალდე", "en": "Export folder"},
+    "choose": {"ka": "არჩევა", "en": "Choose"},
+    "save_json": {"ka": "JSON ფაილის შენახვაც (FreeCAD მაკროსთვის)", "en": "Also save JSON (for the FreeCAD macro)"},
+
+    # theme names
+    "theme_graphite": {"ka": "გრაფიტი და ქარვა", "en": "Graphite and amber"},
+    "theme_indigo": {"ka": "ღამის ინდიგო", "en": "Indigo night"},
+    "theme_copper": {"ka": "ზღვისფერი და სპილენძი", "en": "Teal and copper"},
+    "theme_instrument": {"ka": "ინსტრუმენტული მწვანე", "en": "Instrument green"},
+    "theme_ocean": {"ka": "ნახაზის ლურჯი", "en": "Blueprint blue"},
+    "theme_daylight": {"ka": "დღის შუქი", "en": "Daylight"},
+}
+
+
+class Translator:
+    def __init__(self, lang="ka"):
+        self.lang = lang if lang in ("ka", "en") else "ka"
+
+    def __call__(self, key, **kwargs):
+        entry = TEXT.get(key)
+        if entry is None:
+            return key
+        text = entry.get(self.lang) or entry.get("en") or key
+        return text.format(**kwargs) if kwargs else text

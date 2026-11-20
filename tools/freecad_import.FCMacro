@@ -1,0 +1,26 @@
+# FreeCAD macro: pick an itemN.json saved by the app and make a solid from it
+# (the outline extruded by the measured height). Macro > Macros... > select this file > Execute.
+import json
+
+import FreeCAD as App
+import Part
+from PySide import QtGui
+
+path, _ = QtGui.QFileDialog.getOpenFileName(None, "Item JSON", "", "JSON (*.json)")
+if path:
+    with open(path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    pts = [App.Vector(x, -y, 0) for x, y in data["outline_mm"]]
+    pts.append(pts[0])
+    face = Part.Face(Part.makePolygon(pts))
+    height = data.get("height_mm") or 1.0
+    solid = face.extrude(App.Vector(0, 0, height))
+    doc = App.ActiveDocument or App.newDocument("Item")
+    obj = doc.addObject("Part::Feature", "".join(c for c in data["name"] if c.isalnum()) or "Item")
+    obj.Shape = solid
+    doc.recompute()
+    try:
+        import FreeCADGui
+        FreeCADGui.SendMsgToActiveView("ViewFit")
+    except Exception:
+        pass
