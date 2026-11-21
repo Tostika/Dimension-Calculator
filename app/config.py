@@ -14,7 +14,7 @@ def data_dir():
     return path
 
 
-SETTINGS_VERSION = 4
+SETTINGS_VERSION = 5
 
 SHEET_KEYS = ("marker_size_mm", "base_marker_centers_mm", "plate_marker_size_mm", "plate_marker_centers_mm")
 
@@ -35,8 +35,8 @@ DEFAULTS = {
     "exposure_value": -6,
     "serial_port": "",
     "led_brightness": 80,
-    "camera_height_cm": 37,      # lens height above the base, 35-40 cm in 1 cm steps
-    "camera_height_min_cm": 35,
+    "camera_height_cm": 37,      # lens height above the base, 30-40 cm in 1 cm steps
+    "camera_height_min_cm": 30,
     "camera_height_max_cm": 40,
     "remove_ambient": True,
     "marker_size_mm": 30.0,      # printed side length of base markers 0-3
@@ -76,6 +76,12 @@ class Settings:
             # v0.1.9 ships fixed print sheets (print/base_A3.pdf, height_card_A4.pdf) that match
             # the defaults exactly: forget layouts learned from older sheets
             self.use_sheet_layout()
+            self.data["settings_version"] = SETTINGS_VERSION
+            self.save()
+        if stored_version < 5:
+            # v0.1.10 widens the camera height range from 35-40 cm to 30-40 cm
+            self.data["camera_height_min_cm"] = DEFAULTS["camera_height_min_cm"]
+            self.data["camera_height_max_cm"] = DEFAULTS["camera_height_max_cm"]
             self.data["settings_version"] = SETTINGS_VERSION
             self.save()
         if not self.data.get("export_folder"):

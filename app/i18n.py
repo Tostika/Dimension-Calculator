@@ -102,8 +102,8 @@ TEXT = {
 
     # calibration
     "cal1": {"ka": "1. ლინზის კორექცია", "en": "1. Lens correction"},
-    "cal1_desc": {"ka": "დაბეჭდილი ჭადრაკის დაფა კამერის ქვეშ დაახლოებით 15 სხვადასხვა პოზიციაში დაიჭირეთ. საკმარისია ერთხელ, კამერის ნებისმიერ სიმაღლეზე 35-დან 40 სმ-მდე. ამის შემდეგ ფოკუსი ჩაიკეტება და კამერის სიმაღლე ავტომატურად გაიზომება.",
-                  "en": "Hold the printed checkerboard under the camera in about 15 different positions. Done once, at any camera height from 35 to 40 cm. After that the focus is locked and the camera height is measured automatically."},
+    "cal1_desc": {"ka": "დაბეჭდილი ჭადრაკის დაფა კამერის ქვეშ დაახლოებით 15 სხვადასხვა პოზიციაში დაიჭირეთ. საკმარისია ერთხელ, კამერის ნებისმიერ სიმაღლეზე 30-დან 40 სმ-მდე. ამის შემდეგ ფოკუსი ჩაიკეტება და კამერის სიმაღლე ავტომატურად გაიზომება.",
+                  "en": "Hold the printed checkerboard under the camera in about 15 different positions. Done once, at any camera height from 30 to 40 cm. After that the focus is locked and the camera height is measured automatically."},
     "lens": {"ka": "ლინზა", "en": "Lens"},
     "calibrated": {"ka": "დაკალიბრებულია", "en": "Calibrated"},
     "not_yet": {"ka": "ჯერ არ არის", "en": "Not yet"},

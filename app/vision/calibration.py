@@ -57,7 +57,7 @@ class CalibrationSession:
 
 class CalibrationStore:
     """calibration.json: {"lens": {"K":..., "dist":..., "rms":..., "size":[w,h], "focus":...}}.
-    One lens calibration is enough for the whole 35-40 cm range (focus is locked)."""
+    One lens calibration is enough for the whole 30-40 cm range (focus is locked)."""
 
     def __init__(self, path):
         self.path = path

@@ -1,4 +1,4 @@
-"""Settings tab: appearance (themes, own colours, layout, corners), language, camera, ESP32, saving."""
+"""Settings tab: appearance (themes, own colours, layout, corners), camera, ESP32, saving."""
 from PySide6.QtCore import QRectF, QSize, Qt, QTimer
 from PySide6.QtGui import QColor, QIcon, QPainter, QPen, QPixmap
 from PySide6.QtWidgets import (QColorDialog, QComboBox, QFileDialog, QFrame, QGridLayout, QHBoxLayout,
@@ -122,7 +122,6 @@ class SettingsPage(QWidget):
         lay.addWidget(self._appearance(), 1, Qt.AlignmentFlag.AlignTop)
         right = QVBoxLayout()
         right.setSpacing(16)
-        right.addWidget(self._language())
         right.addWidget(self._camera())
         right.addWidget(self._esp())
         right.addWidget(self._saving())
@@ -241,20 +240,6 @@ class SettingsPage(QWidget):
     def on_reset(self):
         self.s.reset_appearance()
         self.main.appearance_changed()
-
-    # ---------- language ----------
-    def _language(self):
-        c, lay = card(self.t("language"))
-        lay.addWidget(label(self.t("language_desc"), "Muted", wrap=True))
-        row = QHBoxLayout()
-        for code, name in (("ka", "ქართული"), ("en", "English")):
-            b = button(name, "Toggle", checkable=True)
-            b.setMinimumHeight(48)
-            b.setChecked(self.s.get("language") == code)
-            b.clicked.connect(lambda _=False, x=code: self.main.set_language(x))
-            row.addWidget(b)
-        lay.addLayout(row)
-        return c
 
     # ---------- camera ----------
     def _camera(self):
