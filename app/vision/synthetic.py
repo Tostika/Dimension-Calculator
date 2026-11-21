@@ -11,7 +11,7 @@ _DICT = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_50)
 class Scene:
     def __init__(self, width=3840, height=2160, fx=None, tex_px_per_mm=8, settings=None):
         self.W, self.H = width, height
-        fx = fx or 3070.0 * width / 3840.0
+        fx = fx or 3392.0 * width / 3840.0          # C960 4K at its widest view (66 deg diagonal)
         self.K = np.array([[fx, 0, width / 2], [0, fx, height / 2], [0, 0, 1]], np.float64)
         self.TEX = tex_px_per_mm
         self.get = (settings.get if settings is not None else DEFAULTS.get)
@@ -31,9 +31,13 @@ class Scene:
         mask = cv2.warpPerspective(np.full(tex.shape[:2], 255, np.uint8), Hm, (self.W, self.H), flags=cv2.INTER_NEAREST)
         frame[mask > 0] = warped[mask > 0]
 
-    def render(self, item_h=7.8, item=(147.6, 71.5), item_center=(155, 92), with_item=True, with_plate=False,
-               cam_xy=(150, 95), cam_h=400.0, light=1.0, noise_seed=1):
+    def render(self, item_h=7.8, item=(147.6, 71.5), item_center=None, with_item=True, with_plate=False,
+               cam_xy=None, cam_h=300.0, light=1.0, noise_seed=1):
         T = self.TEX
+        cs = list(self.get("base_marker_centers_mm").values())
+        mid = (sum(c[0] for c in cs) / len(cs), sum(c[1] for c in cs) / len(cs))
+        cam_xy = cam_xy or mid
+        item_center = item_center or mid
         M = self._P(cam_xy, cam_h)
         frame = np.full((self.H, self.W, 3), 40, np.uint8)
         base = np.zeros((280 * T, 380 * T, 3), np.uint8)

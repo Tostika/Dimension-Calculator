@@ -22,7 +22,7 @@ class DemoScene:
             elif self.mode == "plate_empty":
                 f = self.scene.render(with_item=False, with_plate=True, light=light, noise_seed=None, cam_h=cam_h)
             elif self.mode == "card":
-                f = self.scene.render(item_h=0.8, item=(85.6, 53.98), item_center=(150, 95), light=light, noise_seed=None, cam_h=cam_h)
+                f = self.scene.render(item_h=0.8, item=(85.6, 53.98), item_center=(105, 80), light=light, noise_seed=None, cam_h=cam_h)
             else:
                 f = self.scene.render(with_item=False, light=light, noise_seed=None, cam_h=cam_h)
             if len(self._cache) > 12:

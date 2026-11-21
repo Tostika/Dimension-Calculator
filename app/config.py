@@ -14,7 +14,7 @@ def data_dir():
     return path
 
 
-SETTINGS_VERSION = 5
+SETTINGS_VERSION = 6
 
 SHEET_KEYS = ("marker_size_mm", "base_marker_centers_mm", "plate_marker_size_mm", "plate_marker_centers_mm")
 
@@ -39,12 +39,12 @@ DEFAULTS = {
     "camera_height_min_cm": 30,
     "camera_height_max_cm": 40,
     "remove_ambient": True,
-    "marker_size_mm": 30.0,      # printed side length of base markers 0-3
+    "marker_size_mm": 20.0,      # printed side length of base markers 0-3
     "base_marker_centers_mm": {  # centre of each base marker on the base, in mm (origin = marker 0)
         "0": [0.0, 0.0],
-        "1": [300.0, 0.0],
-        "2": [0.0, 190.0],
-        "3": [300.0, 190.0]
+        "1": [250.0, 0.0],
+        "2": [0.0, 140.0],
+        "3": [250.0, 140.0]
     },
     "plate_marker_size_mm": 26.0,  # side length of markers 4-7 on the height card (card 100 x 70 mm)
     "plate_marker_centers_mm": {   # marker centres on the card, origin = card centre
@@ -84,6 +84,12 @@ class Settings:
             self.data["camera_height_max_cm"] = DEFAULTS["camera_height_max_cm"]
             self.data["settings_version"] = SETTINGS_VERSION
             self.save()
+        if stored_version < 6:
+            # v0.1.11 replaces the A3 base with a smaller A4 base (print/base_A4.pdf) that the
+            # camera sees whole from 30 cm up
+            self.use_sheet_layout()
+            self.data["settings_version"] = SETTINGS_VERSION
+            self.save()
         if not self.data.get("export_folder"):
             self.data["export_folder"] = os.path.join(data_dir(), "exports")
 
@@ -107,7 +113,7 @@ class Settings:
         os.replace(tmp, self.path)
 
     def use_sheet_layout(self):
-        """Marker sizes and positions of the printed sheets (base_A3.pdf, height_card_A4.pdf)."""
+        """Marker sizes and positions of the printed sheets (base_A4.pdf, height_card_A4.pdf)."""
         for k in SHEET_KEYS:
             self.data[k] = deepcopy(DEFAULTS[k])
         self.save()

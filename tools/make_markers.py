@@ -5,7 +5,7 @@ Print every PDF at 100 % / "Actual size" (never "Fit to page"), then check the 1
 on each sheet with a ruler.
 
   python tools/make_markers.py            -> files in ./print
-    base_A3.pdf          the base: markers 0-3, 30 mm, centres 300 x 190 mm apart (A3 landscape)
+    base_A4.pdf          the base: markers 0-3, 20 mm, centres 250 x 140 mm apart (A4 landscape)
     height_card_A4.pdf   the 100 x 70 mm height card, markers 4-7, 26 mm (cut out, glue on a flat plate)
     checkerboard_A4.pdf  9 x 6 inner corners, 25 mm squares, for lens calibration
 """
@@ -59,27 +59,28 @@ def save_pdf(img, path):
     print("wrote", path)
 
 
-def base_a3(out):
+def base_a4(out):
+    """A4 landscape. The camera (C960 4K at its widest, 66 deg) sees about 34 x 19 cm at 30 cm,
+    so the markers span 27 x 16 cm outside to outside and fit with a margin all round."""
     size = DEFAULTS["marker_size_mm"]
     centers = DEFAULTS["base_marker_centers_mm"]
     xs = [c[0] for c in centers.values()]
     ys = [c[1] for c in centers.values()]
-    W, H = 420.0, 297.0
+    W, H = 297.0, 210.0
     ox = (W - (max(xs) - min(xs))) / 2 - min(xs)        # layout centred on the page
     oy = (H - (max(ys) - min(ys))) / 2 - min(ys)
     img = sheet(W, H)
     for i, c in centers.items():
         cx, cy = c[0] + ox, c[1] + oy
         put_marker(img, int(i), (cx, cy), size)
-        # ID label on the outer side, away from the measuring area
-        lx = cx - size / 2 - (14 if c[0] == min(xs) else -size - 3)
-        ly = cy - size / 2 - 5 if c[1] == min(ys) else cy + size / 2 + 9
-        text(img, f"ID {i}", lx if c[0] == min(xs) else cx + size / 2 - 12, ly, 0.9, 2, 90)
-    text(img, "Base. Put the item inside the four markers. Keep all four markers uncovered.", 12, 12, 1.0, 2, 60)
-    text(img, "Markers %.0f mm, centres %.0f x %.0f mm apart (the app's default layout)."
-         % (size, max(xs) - min(xs), max(ys) - min(ys)), 12, 20, 1.0, 2, 60)
-    ruler(img, 12, H - 10)
-    save_pdf(img, os.path.join(out, "base_A3.pdf"))
+        # ID label just above the top markers and just below the bottom ones
+        ly = cy - size / 2 - 2.5 if c[1] == min(ys) else cy + size / 2 + 5.5
+        text(img, f"ID {i}", cx - 4.5, ly, 0.8, 2, 90)
+    text(img, "Base. Put the item between the four markers. Keep all four markers uncovered.", 40, 9, 0.85, 2, 60)
+    text(img, "Markers %.0f mm, centres %.0f x %.0f mm apart (the app's default layout). Print at 100 %%."
+         % (size, max(xs) - min(xs), max(ys) - min(ys)), 40, 15, 0.85, 2, 60)
+    ruler(img, 98, H - 8)
+    save_pdf(img, os.path.join(out, "base_A4.pdf"))
 
 
 def card_a4(out):
@@ -114,11 +115,11 @@ def checkerboard_a4(out):
 
 def main(out="print"):
     os.makedirs(out, exist_ok=True)
-    for old in ("base_markers_A4.png", "height_card_A4.png", "checkerboard_A4.png"):
+    for old in ("base_markers_A4.png", "height_card_A4.png", "checkerboard_A4.png", "base_A3.pdf"):
         p = os.path.join(out, old)
         if os.path.exists(p):
             os.remove(p)
-    base_a3(out)
+    base_a4(out)
     card_a4(out)
     checkerboard_a4(out)
 
