@@ -26,16 +26,30 @@ def build_base_map(frame_bgr, settings, calib):
         raise MeasureError("err_no_markers")
     if bm.layout_error_mm <= layout_limit(settings.get("marker_size_mm")):
         return bm
+    err_mm = bm.layout_error_mm
     # not the saved layout: maybe the other printed sheet (A3 / A4) is on the base
     name = match_sheet(found, calib)
     if name is not None:
         sh = BASE_SHEETS[name]
-        bm = BaseMap(found, sh["base_marker_centers_mm"], sh["marker_size_mm"], calib)
-        if bm.layout_error_mm <= layout_limit(sh["marker_size_mm"]):
+        other = BaseMap(found, sh["base_marker_centers_mm"], sh["marker_size_mm"], calib)
+        if other.layout_error_mm <= layout_limit(sh["marker_size_mm"]):
             if hasattr(settings, "use_sheet"):
                 settings.use_sheet(name)
-            return bm
-    raise MeasureError("err_layout")
+            return other
+    raise layout_problem(found, settings, calib, err_mm)
+
+
+def layout_problem(found, settings, calib, err_mm):
+    """Why the markers don't fit: a lens calibration that is poor near the edges of the picture
+    (it makes the fit worse than no correction at all), or markers that really are elsewhere."""
+    if calib:
+        try:
+            raw = BaseMap(found, settings.get("base_marker_centers_mm"), settings.get("marker_size_mm"), None)
+            if raw.layout_error_mm < err_mm:
+                return MeasureError("err_lens_edges", mm=f"{err_mm:.1f}")
+        except LookupError:
+            pass
+    return MeasureError("err_layout_mm", mm=f"{err_mm:.1f}")
 
 
 def layout_limit(marker_size_mm):

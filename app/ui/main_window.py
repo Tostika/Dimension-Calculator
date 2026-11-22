@@ -35,6 +35,7 @@ class MainWindow(QMainWindow):
         self.live_markers, self.live_ids, self.full_width = [], set(), None
         self.live_height_mm = None        # camera height measured from the base markers (needs lens calibration)
         self.live_layout_ok = True
+        self.live_layout_problem = None
         self._old_cameras = []
         self._last_preview = None
         self.camera_ok = False
@@ -128,6 +129,8 @@ class MainWindow(QMainWindow):
                         bm = BaseMap(found, st.get("base_marker_centers_mm"), st.get("marker_size_mm"), calib)
                         self.live_layout_ok = True
                 self.live_height_mm = bm.camera_height_mm if (self.live_layout_ok and lens) else None
+                if not self.live_layout_ok:
+                    self.live_layout_problem = measure.layout_problem(found, st, calib, bm.layout_error_mm)
             except Exception:
                 pass
 

@@ -51,7 +51,10 @@ class CalibrationSession:
 
     def solve(self):
         objp = board_points()
-        rms, K, dist, _, _ = cv2.calibrateCamera([objp] * self.count, self.img_points, self.size, None, None)
+        # k3 off: with a webcam lens it mostly fits noise in the middle of the picture and then
+        # bends the corners badly, which is exactly where the base markers are
+        rms, K, dist, _, _ = cv2.calibrateCamera([objp] * self.count, self.img_points, self.size, None, None,
+                                                 flags=cv2.CALIB_FIX_K3)
         return {"K": K.tolist(), "dist": dist.flatten().tolist(), "rms": float(rms), "size": list(self.size)}
 
 
