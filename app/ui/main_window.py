@@ -8,6 +8,7 @@ from .. import theme
 from ..devices.camera import CameraThread
 from ..devices.esp32 import Esp32
 from ..i18n import Translator
+from ..vision import measure
 from ..vision.calibration import scaled
 from ..vision.markers import BASE_IDS, BaseMap, detect
 from .calibration_page import CalibrationPage
@@ -109,13 +110,24 @@ class MainWindow(QMainWindow):
         self.live_layout_ok = True
         size = self.camera.frame_size()
         lens = self.calib_store.lens(size)
-        if lens and size and all(i in found for i in BASE_IDS):
+        if size and all(i in found for i in BASE_IDS):
             try:
-                bm = BaseMap(found, self.settings.get("base_marker_centers_mm"), self.settings.get("marker_size_mm"),
-                             scaled(lens, f.shape[1] / float(size[0])))
-                limit = max(1.5, 0.05 * float(self.settings.get("marker_size_mm")))
-                self.live_layout_ok = bm.layout_error_mm <= limit
-                self.live_height_mm = bm.camera_height_mm if self.live_layout_ok else None
+                calib = scaled(lens, f.shape[1] / float(size[0])) if lens else None
+                st = self.settings
+                bm = BaseMap(found, st.get("base_marker_centers_mm"), st.get("marker_size_mm"), calib)
+                if lens:
+                    self.live_layout_ok = bm.layout_error_mm <= measure.layout_limit(st.get("marker_size_mm"))
+                else:   # without lens calibration the fit is looser: compare marker size to spacing instead
+                    r = measure.size_ratio(found, None, st.get("base_marker_centers_mm"), st.get("marker_size_mm"))
+                    self.live_layout_ok = r is not None and abs(r - 1.0) < 0.1
+                if not self.live_layout_ok:
+                    # the other printed sheet (A3 / A4)? switch to it by itself
+                    name = measure.match_sheet(found, calib)
+                    if name is not None and name != st.get("base_sheet"):
+                        st.use_sheet(name)
+                        bm = BaseMap(found, st.get("base_marker_centers_mm"), st.get("marker_size_mm"), calib)
+                        self.live_layout_ok = True
+                self.live_height_mm = bm.camera_height_mm if (self.live_layout_ok and lens) else None
             except Exception:
                 pass
 
@@ -130,7 +142,9 @@ class MainWindow(QMainWindow):
                                 else f"ESP32: {t('not_connected')}")
             self._dot(self.st_esp_dot, self.esp.connected)
             base = len(self.live_ids & {0, 1, 2, 3}) if self.camera_ok else 0
-            self.st_markers.setText(f"{t('base_markers')} {base}/4" if self.camera_ok else f"{t('base_markers')}: -")
+            sheet = self.settings.get("base_sheet")
+            extra = f" ({sheet})" if base == 4 and self.live_layout_ok and sheet in ("A3", "A4") else ""
+            self.st_markers.setText(f"{t('base_markers')} {base}/4{extra}" if self.camera_ok else f"{t('base_markers')}: -")
             self._dot(self.st_markers_dot, base == 4)
         except RuntimeError:
             pass

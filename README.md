@@ -34,6 +34,7 @@ The PDFs in `print/` are made at exact size and the app is set up for exactly th
 (nothing to measure or learn). Print at **100 % / "Actual size"**, never "Fit to page", and check
 the 100 mm line on each sheet with a ruler.
 - `base_A4.pdf`: the base (A4 landscape). Markers 0-3, 20 mm, centres 250 x 140 mm apart. The camera sees it whole from 30 cm up.
+- `base_A3.pdf`: the bigger base (A3 landscape). Markers 0-3, 30 mm, centres 300 x 190 mm apart. Needs the camera at about 33 cm or higher. The app tells the two sheets apart by itself.
   Lay it flat and tape it down; the item goes inside the four markers.
 - `height_card_A4.pdf`: the 100 x 70 mm height card (markers 4-7, 26 mm). Cut on the grey line, glue on
   a flat rigid plate, enter paper + plate thickness in Calibration > Height card.

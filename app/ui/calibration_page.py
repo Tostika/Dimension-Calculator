@@ -268,6 +268,7 @@ class CalibrationPage(QWidget):
                 self._msg(self.base_msg, self.t("err_layout_unsteady"), True)
                 return
             s.set("base_marker_centers_mm", centers)
+            s.set("base_sheet", "custom")
             self.show_layout()
             self._msg(self.base_msg, "")
 

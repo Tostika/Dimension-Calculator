@@ -4,7 +4,8 @@ import math
 import cv2
 import numpy as np
 
-from .markers import PLATE_IDS, BaseMap, detect, square_corners_mm, undistort_px
+from ..config import BASE_SHEETS
+from .markers import BASE_IDS, PLATE_IDS, BaseMap, detect, square_corners_mm, undistort_px
 
 
 class MeasureError(Exception):
@@ -23,9 +24,52 @@ def build_base_map(frame_bgr, settings, calib):
         bm = BaseMap(found, settings.get("base_marker_centers_mm"), settings.get("marker_size_mm"), calib)
     except LookupError:
         raise MeasureError("err_no_markers")
-    if bm.layout_error_mm > max(1.5, 0.05 * float(settings.get("marker_size_mm"))):
-        raise MeasureError("err_layout")
-    return bm
+    if bm.layout_error_mm <= layout_limit(settings.get("marker_size_mm")):
+        return bm
+    # not the saved layout: maybe the other printed sheet (A3 / A4) is on the base
+    name = match_sheet(found, calib)
+    if name is not None:
+        sh = BASE_SHEETS[name]
+        bm = BaseMap(found, sh["base_marker_centers_mm"], sh["marker_size_mm"], calib)
+        if bm.layout_error_mm <= layout_limit(sh["marker_size_mm"]):
+            if hasattr(settings, "use_sheet"):
+                settings.use_sheet(name)
+            return bm
+    raise MeasureError("err_layout")
+
+
+def layout_limit(marker_size_mm):
+    return max(1.5, 0.05 * float(marker_size_mm))
+
+
+def size_ratio(found, calib, centers_mm, marker_size_mm):
+    """Marker size the camera sees, in the units of a layout, divided by the layout's marker size.
+    About 1.0 for the sheet that is really on the base; the A3 and A4 sheets give 0.8 / 1.25
+    when mixed up (their markers are 30/300 and 20/250 of the spacing). Lens distortion barely
+    changes this, so it works before lens calibration too."""
+    ids = [i for i in BASE_IDS if i in found]
+    if len(ids) < 4:
+        return None
+    img_c = np.float32([undistort_px(found[i], calib).mean(axis=0) for i in ids])
+    obj_c = np.float32([centers_mm[str(i)] for i in ids])
+    Hm = cv2.getPerspectiveTransform(img_c, obj_c)
+    sides = []
+    for i in ids:
+        q = cv2.perspectiveTransform(undistort_px(found[i], calib).reshape(-1, 1, 2).astype(np.float32), Hm).reshape(-1, 2)
+        sides += [np.linalg.norm(q[k] - q[(k + 1) % 4]) for k in range(4)]
+    return float(np.mean(sides)) / float(marker_size_mm)
+
+
+def match_sheet(found, calib):
+    """Name of the printed base sheet the camera sees ("A3" / "A4"), or None."""
+    best = None
+    for name, sh in BASE_SHEETS.items():
+        r = size_ratio(found, calib, sh["base_marker_centers_mm"], sh["marker_size_mm"])
+        if r is None:
+            return None
+        if abs(r - 1.0) < 0.1 and (best is None or abs(r - 1.0) < best[1]):
+            best = (name, abs(r - 1.0))
+    return best[0] if best else None
 
 
 def light_only(frame_on, frame_off):

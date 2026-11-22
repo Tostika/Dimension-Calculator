@@ -43,6 +43,17 @@ def run():
     res = measure.measure_outline(fi, off, bm, height_mm=7.8)
     print(f"[LED on minus off] L={res['length']:.2f} W={res['width']:.2f}")
     ok &= abs(res["length"] - 147.6) < 0.8 and abs(res["width"] - 71.5) < 0.8
+    # the A3 sheet on the base while the app expects A4: it must switch by itself
+    from app.config import BASE_SHEETS
+    a3 = Scene(settings=S(BASE_SHEETS["A3"]))
+    st2 = S(BASE_SHEETS["A4"])
+    switched = []
+    st2.use_sheet = lambda name: (switched.append(name), st2.update(BASE_SHEETS[name]))
+    f3 = a3.render(item_h=7.8, cam_h=400.0)
+    bm = measure.build_base_map(f3, st2, None)
+    res = measure.measure_outline(f3, None, bm, height_mm=7.8, fallback_camera_height_mm=400.0)
+    print(f"[A3 sheet, app set to A4] switched to {switched} L={res['length']:.2f} W={res['width']:.2f}")
+    ok &= switched == ["A3"] and abs(res["length"] - 147.6) < 0.8 and abs(res["width"] - 71.5) < 0.8
     print("PASS" if ok else "FAIL")
     return ok
 

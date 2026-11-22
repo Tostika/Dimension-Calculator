@@ -16,6 +16,15 @@ def data_dir():
 
 SETTINGS_VERSION = 6
 
+# The two printed base sheets (print/base_A3.pdf, print/base_A4.pdf). The app tells them apart by
+# how the markers sit relative to each other and switches to the one it sees.
+BASE_SHEETS = {
+    "A4": {"marker_size_mm": 20.0,
+           "base_marker_centers_mm": {"0": [0.0, 0.0], "1": [250.0, 0.0], "2": [0.0, 140.0], "3": [250.0, 140.0]}},
+    "A3": {"marker_size_mm": 30.0,
+           "base_marker_centers_mm": {"0": [0.0, 0.0], "1": [300.0, 0.0], "2": [0.0, 190.0], "3": [300.0, 190.0]}},
+}
+
 SHEET_KEYS = ("marker_size_mm", "base_marker_centers_mm", "plate_marker_size_mm", "plate_marker_centers_mm")
 
 DEFAULTS = {
@@ -53,6 +62,7 @@ DEFAULTS = {
         "6": [-31.0, 16.0],
         "7": [31.0, 16.0]
     },
+    "base_sheet": "A4",          # which printed base sheet is in use ("A4", "A3", or "custom" after Learn layout)
     "plate_thickness_mm": 2.0,
     "export_folder": "",
     "save_json": True,
@@ -113,9 +123,17 @@ class Settings:
         os.replace(tmp, self.path)
 
     def use_sheet_layout(self):
-        """Marker sizes and positions of the printed sheets (base_A4.pdf, height_card_A4.pdf)."""
+        """Marker sizes and positions of the printed sheets (base_A4.pdf or base_A3.pdf, height_card_A4.pdf)."""
         for k in SHEET_KEYS:
             self.data[k] = deepcopy(DEFAULTS[k])
+        sheet = self.data.get("base_sheet")
+        self.use_sheet(sheet if sheet in BASE_SHEETS else "A4")
+
+    def use_sheet(self, name):
+        """Switch to one of the printed base sheets (BASE_SHEETS)."""
+        for k, v in BASE_SHEETS[name].items():
+            self.data[k] = deepcopy(v)
+        self.data["base_sheet"] = name
         self.save()
 
     def camera_height_mm(self):

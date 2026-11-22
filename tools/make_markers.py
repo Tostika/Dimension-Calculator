@@ -5,7 +5,8 @@ Print every PDF at 100 % / "Actual size" (never "Fit to page"), then check the 1
 on each sheet with a ruler.
 
   python tools/make_markers.py            -> files in ./print
-    base_A4.pdf          the base: markers 0-3, 20 mm, centres 250 x 140 mm apart (A4 landscape)
+    base_A4.pdf          the base: markers 0-3, 20 mm, centres 250 x 140 mm apart (A4 landscape, 30 cm+)
+    base_A3.pdf          the bigger base: markers 0-3, 30 mm, centres 300 x 190 mm apart (A3 landscape, about 33 cm+)
     height_card_A4.pdf   the 100 x 70 mm height card, markers 4-7, 26 mm (cut out, glue on a flat plate)
     checkerboard_A4.pdf  9 x 6 inner corners, 25 mm squares, for lens calibration
 """
@@ -17,7 +18,7 @@ import numpy as np
 from PIL import Image
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from app.config import DEFAULTS  # noqa: E402
+from app.config import BASE_SHEETS, DEFAULTS  # noqa: E402
 from app.vision.calibration import BOARD_INNER, SQUARE_MM  # noqa: E402
 
 DPI = 300
@@ -59,14 +60,14 @@ def save_pdf(img, path):
     print("wrote", path)
 
 
-def base_a4(out):
-    """A4 landscape. The camera (C960 4K at its widest, 66 deg) sees about 34 x 19 cm at 30 cm,
-    so the markers span 27 x 16 cm outside to outside and fit with a margin all round."""
-    size = DEFAULTS["marker_size_mm"]
-    centers = DEFAULTS["base_marker_centers_mm"]
+def base_sheet(out, name):
+    """A4: the camera (C960 4K at its widest, 66 deg) sees about 34 x 19 cm at 30 cm, so these
+    markers (27 x 16 cm outside to outside) fit from 30 cm up. A3: bigger area, needs about 33 cm+."""
+    size = BASE_SHEETS[name]["marker_size_mm"]
+    centers = BASE_SHEETS[name]["base_marker_centers_mm"]
     xs = [c[0] for c in centers.values()]
     ys = [c[1] for c in centers.values()]
-    W, H = 297.0, 210.0
+    W, H = (297.0, 210.0) if name == "A4" else (420.0, 297.0)
     ox = (W - (max(xs) - min(xs))) / 2 - min(xs)        # layout centred on the page
     oy = (H - (max(ys) - min(ys))) / 2 - min(ys)
     img = sheet(W, H)
@@ -80,7 +81,7 @@ def base_a4(out):
     text(img, "Markers %.0f mm, centres %.0f x %.0f mm apart (the app's default layout). Print at 100 %%."
          % (size, max(xs) - min(xs), max(ys) - min(ys)), 40, 15, 0.85, 2, 60)
     ruler(img, 98, H - 8)
-    save_pdf(img, os.path.join(out, "base_A4.pdf"))
+    save_pdf(img, os.path.join(out, f"base_{name}.pdf"))
 
 
 def card_a4(out):
@@ -115,11 +116,12 @@ def checkerboard_a4(out):
 
 def main(out="print"):
     os.makedirs(out, exist_ok=True)
-    for old in ("base_markers_A4.png", "height_card_A4.png", "checkerboard_A4.png", "base_A3.pdf"):
+    for old in ("base_markers_A4.png", "height_card_A4.png", "checkerboard_A4.png"):
         p = os.path.join(out, old)
         if os.path.exists(p):
             os.remove(p)
-    base_a4(out)
+    base_sheet(out, "A4")
+    base_sheet(out, "A3")
     card_a4(out)
     checkerboard_a4(out)
 
