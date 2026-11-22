@@ -219,7 +219,7 @@ def measure_height(frame_bgr, base_map, settings, fallback_camera_height_mm=300.
         tilt = math.degrees(math.acos(min(1.0, abs(float(n_base[2])))))
         if tilt > 3.0:
             raise MeasureError("err_tilt", deg=f"{tilt:.1f}")
-        top = abs(float(p_base[2]))
+        top = -float(p_base[2])                 # camera side is negative z: above the base = positive
 
     c = settings.get("plate_zero_scale")
     if c or top is None:
