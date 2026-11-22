@@ -64,6 +64,7 @@ DEFAULTS = {
     },
     "base_sheet": "A4",          # which printed base sheet is in use ("A4", "A3", or "custom" after Learn layout)
     "plate_thickness_mm": 2.0,
+    "plate_zero_scale": None,    # set by the zero check (height card on the empty base); cleared when the lens or sheet changes
     "export_folder": "",
     "save_json": True,
 }
@@ -133,6 +134,8 @@ class Settings:
         """Switch to one of the printed base sheets (BASE_SHEETS)."""
         for k, v in BASE_SHEETS[name].items():
             self.data[k] = deepcopy(v)
+        if self.data.get("base_sheet") != name:
+            self.data["plate_zero_scale"] = None
         self.data["base_sheet"] = name
         self.save()
 

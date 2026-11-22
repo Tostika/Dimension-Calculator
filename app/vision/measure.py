@@ -148,21 +148,23 @@ def simplify(points_mm, tol_mm=0.3):
     return approx.reshape(-1, 2)
 
 
-def measure_outline(frame_on, frame_off, base_map, height_mm=None, fallback_camera_height_mm=300.0):
+def measure_outline(frame_on, frame_off, base_map, height_mm=None, fallback_camera_height_mm=300.0, zero_scale=None):
     img = light_only(frame_on, frame_off) if frame_off is not None else frame_on
     contour_px = find_item_contour(img, base_map)
     pts_mm = base_map.to_mm(contour_px)
     pts_mm = correct_for_height(pts_mm, base_map, height_mm, fallback_camera_height_mm)
+    if zero_scale:
+        # the height card on the empty base showed how much bigger than real things look in the
+        # middle of the picture (lens correction, printing): take that back out
+        c = pts_mm.mean(axis=0)
+        pts_mm = (pts_mm - c) / float(zero_scale) + c
     length, width = size_from_outline(pts_mm)
     if not (np.isfinite(length) and np.isfinite(width)) or length > 1000:
         raise MeasureError("err_layout")
     return {"contour_px": contour_px, "outline_mm": simplify(pts_mm), "length": float(length), "width": float(width)}
 
 
-def measure_height(frame_bgr, base_map, settings, fallback_camera_height_mm=300.0, clamp=True):
-    """Height of the top of the item, from the marker card lying on it.
-    With lens calibration: full 3D pose of the card (also checks tilt).
-    Without: from how much bigger the card looks than its real size."""
+def _plate(frame_bgr, settings):
     gray = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2GRAY)
     found = detect(gray)
     ids = [i for i in PLATE_IDS if i in found]
@@ -171,8 +173,40 @@ def measure_height(frame_bgr, base_map, settings, fallback_camera_height_mm=300.
     centers = settings.get("plate_marker_centers_mm")
     size = settings.get("plate_marker_size_mm")
     obj = np.vstack([square_corners_mm(centers[str(i)], size) for i in ids])
+    return found, ids, obj
+
+
+def plate_scale(frame_bgr, base_map, settings):
+    """How much bigger the card looks on the base plane than its real size (k = H / (H - top))."""
+    found, ids, obj = _plate(frame_bgr, settings)
+    app = base_map.to_mm(np.vstack([found[i] for i in ids]))
+    d_true, d_app = [], []
+    for a in range(len(obj)):
+        for b in range(a + 1, len(obj)):
+            d_true.append(np.linalg.norm(obj[a] - obj[b]))
+            d_app.append(np.linalg.norm(app[a] - app[b]))
+    return float(np.median(np.array(d_app) / np.array(d_true)))
+
+
+def zero_scale(frame_bgr, base_map, settings, fallback_camera_height_mm=300.0):
+    """With the card lying on the empty base: the extra enlargement that is not height
+    (lens correction near the middle, printing). 1.0 = none. Saved as plate_zero_scale."""
+    k = plate_scale(frame_bgr, base_map, settings)
+    H = base_map.camera_height_mm or fallback_camera_height_mm
+    t = float(settings.get("plate_thickness_mm"))
+    return k * (H - t) / H
+
+
+def measure_height(frame_bgr, base_map, settings, fallback_camera_height_mm=300.0, clamp=True):
+    """Height of the top of the item, from the marker card lying on it.
+    After the zero check: from how much bigger the card looks than on the empty base (this
+    cancels lens and printing errors). Before it: from the card's 3D pose with lens calibration,
+    or from its size without. The pose is always used to check that the card lies flat."""
+    found, ids, obj = _plate(frame_bgr, settings)
     img = np.vstack([undistort_px(found[i], base_map.calib) for i in ids])
     thickness = float(settings.get("plate_thickness_mm"))
+    H = base_map.camera_height_mm or fallback_camera_height_mm
+    top = None
 
     if base_map.calib and base_map.R is not None:
         K = np.asarray(base_map.calib["K"], np.float64)
@@ -189,16 +223,12 @@ def measure_height(frame_bgr, base_map, settings, fallback_camera_height_mm=300.
         if tilt > 3.0:
             raise MeasureError("err_tilt", deg=f"{tilt:.1f}")
         top = abs(float(p_base[2]))
-    else:
-        # card corners mapped onto the base plane look enlarged by k = H / (H - top)
-        app = base_map.to_mm(np.vstack([found[i] for i in ids]))
-        d_true, d_app = [], []
-        for a in range(len(obj)):
-            for b in range(a + 1, len(obj)):
-                d_true.append(np.linalg.norm(obj[a] - obj[b]))
-                d_app.append(np.linalg.norm(app[a] - app[b]))
-        k = float(np.median(np.array(d_app) / np.array(d_true)))
-        H = base_map.camera_height_mm or fallback_camera_height_mm
-        top = H * (1.0 - 1.0 / k)
+
+    c = settings.get("plate_zero_scale")
+    if c or top is None:
+        # card corners mapped onto the base plane look enlarged by k = c * H / (H - top)
+        k = plate_scale(frame_bgr, base_map, settings)
+        top = H * (1.0 - float(c or 1.0) / k)
     h = top - thickness
     return max(0.0, h) if clamp else h
+

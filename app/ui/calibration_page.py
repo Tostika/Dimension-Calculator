@@ -186,6 +186,7 @@ class CalibrationPage(QWidget):
             calib = sess.solve()
             calib["focus"] = focus
             self.main.calib_store.set_lens(calib)
+            self.s.set("plate_zero_scale", None)          # the zero check depends on the lens correction
             return calib
 
         def done(calib):
@@ -269,6 +270,7 @@ class CalibrationPage(QWidget):
                 return
             s.set("base_marker_centers_mm", centers)
             s.set("base_sheet", "custom")
+            s.set("plate_zero_scale", None)
             self.show_layout()
             self._msg(self.base_msg, "")
 
@@ -330,10 +332,19 @@ class CalibrationPage(QWidget):
         def job():
             frame = cam.wait_new_frames(3)
             bm = measure.build_base_map(frame, s, store.lens(cam.frame_size()))
-            return measure.measure_height(frame, bm, s, s.camera_height_mm(), clamp=False)
+            old = s.get("plate_zero_scale")
+            s.data["plate_zero_scale"] = None
+            before = measure.measure_height(frame, bm, s, s.camera_height_mm(), clamp=False)
+            c = measure.zero_scale(frame, bm, s, s.camera_height_mm())
+            if not 0.9 < c < 1.1:
+                s.data["plate_zero_scale"] = old
+                raise measure.MeasureError("err_zero_scale", pct=f"{(c - 1) * 100:+.1f}")
+            s.set("plate_zero_scale", c)
+            return before, c
 
-        def done(h):
-            self._msg(self.plate_msg, self.t("zero_result", h=f"{h:.2f}"))
+        def done(r):
+            before, c = r
+            self._msg(self.plate_msg, self.t("zero_saved", h=f"{before:.1f}", pct=f"{(c - 1) * 100:+.1f}"))
 
         def fail(e):
             self._msg(self.plate_msg, self._err_text(e), True)

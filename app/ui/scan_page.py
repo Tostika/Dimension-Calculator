@@ -308,7 +308,7 @@ class ScanPage(QWidget):
                 off = cam.wait_new_frames(4)
                 main.set_led(level)
             bm = measure.build_base_map(on, s, calib)
-            res = measure.measure_outline(on, off, bm, None, z)
+            res = measure.measure_outline(on, off, bm, None, z, s.get("plate_zero_scale"))
             return on, off, bm, res
 
         def done(r):
@@ -330,7 +330,7 @@ class ScanPage(QWidget):
         def job():
             frame = cam.wait_new_frames(3)
             h = measure.measure_height(frame, bm, s, z)
-            res = measure.measure_outline(on, off, bm, h, z)   # outline again, now corrected for height
+            res = measure.measure_outline(on, off, bm, h, z, s.get("plate_zero_scale"))   # outline again, now corrected for height
             return h, res
 
         def done(r):

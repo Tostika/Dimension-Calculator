@@ -54,6 +54,21 @@ def run():
     res = measure.measure_outline(f3, None, bm, height_mm=7.8, fallback_camera_height_mm=400.0)
     print(f"[A3 sheet, app set to A4] switched to {switched} L={res['length']:.2f} W={res['width']:.2f}")
     ok &= switched == ["A3"] and abs(res["length"] - 147.6) < 0.8 and abs(res["width"] - 71.5) < 0.8
+    # base printed at 97 % and a slightly wrong lens correction: the zero check must cancel both
+    world = S({"marker_size_mm": 30 * 0.97,
+               "base_marker_centers_mm": {k: [v[0] * 0.97, v[1] * 0.97] for k, v in BASE_SHEETS["A3"]["base_marker_centers_mm"].items()}})
+    scw = Scene(settings=world)
+    app = S(BASE_SHEETS["A3"])
+    cal = {"K": scw.K.tolist(), "dist": [-0.03, 0, 0, 0, 0], "rms": 0.0, "size": [scw.W, scw.H]}
+    bm0 = measure.build_base_map(scw.render(with_item=False, cam_h=400.0), app, cal)
+    app["plate_zero_scale"] = measure.zero_scale(scw.render(with_item=False, with_plate=True, cam_h=400.0), bm0, app, 400.0)
+    fi = scw.render(item_h=0.8, item=(85.6, 53.98), cam_h=400.0)
+    fp = scw.render(item_h=0.8, item=(85.6, 53.98), with_plate=True, cam_h=400.0)
+    bm = measure.build_base_map(fi, app, cal)
+    h = measure.measure_height(fp, bm, app, 400.0)
+    res = measure.measure_outline(fi, None, bm, h, 400.0, app["plate_zero_scale"])
+    print(f"[base at 97 %, lens off, after zero check] L={res['length']:.2f} W={res['width']:.2f} H={h:.2f}")
+    ok &= abs(res["length"] - 85.6) < 0.6 and abs(res["width"] - 53.98) < 0.6 and abs(h - 0.8) < 0.5
     print("PASS" if ok else "FAIL")
     return ok
 
