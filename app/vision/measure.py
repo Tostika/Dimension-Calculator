@@ -31,7 +31,7 @@ def build_base_map(frame_bgr, settings, calib):
     # not the saved layout: maybe the other printed sheet (A3 / A4) is on the base
     name = match_sheet(found, calib)
     if name is not None:
-        sh = BASE_SHEETS[name]
+        sh = settings.sheet_values(name) if hasattr(settings, "sheet_values") else BASE_SHEETS[name]
         other = BaseMap(found, sh["base_marker_centers_mm"], sh["marker_size_mm"], calib)
         if other.layout_error_mm <= layout_limit(sh["marker_size_mm"]):
             if hasattr(settings, "use_sheet"):

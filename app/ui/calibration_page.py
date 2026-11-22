@@ -4,7 +4,7 @@ import numpy as np
 from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QDoubleSpinBox, QFrame, QGridLayout, QHBoxLayout, QVBoxLayout, QWidget
 
-from ..config import DEFAULTS
+from ..config import BASE_SHEETS, DEFAULTS
 from ..vision import measure
 from ..vision.calibration import BOARD_INNER, CalibrationSession
 from ..vision.markers import BASE_IDS, detect, learn_layout
@@ -231,6 +231,22 @@ class CalibrationPage(QWidget):
         lay.addWidget(self.layout_label)
         lay.addWidget(button(self.t("use_sheet_layout"), on_click=self.on_sheet_layout))
         self.show_layout()
+        # how the printed sheet really came out: two long distances from a tape measure
+        lay.addWidget(label(self.t("print_size_title"), "Muted", wrap=True))
+        self.span_label_x = label("", wrap=True)
+        lay.addWidget(self.span_label_x)
+        self.span_x = QDoubleSpinBox()
+        self.span_y = QDoubleSpinBox()
+        for sp in (self.span_x, self.span_y):
+            sp.setRange(50, 600)
+            sp.setDecimals(1)
+            sp.setSingleStep(0.5)
+        lay.addWidget(self.span_x)
+        self.span_label_y = label("", wrap=True)
+        lay.addWidget(self.span_label_y)
+        lay.addWidget(self.span_y)
+        lay.addWidget(button(self.t("print_size_save"), on_click=self.on_print_size))
+        self.fill_print_size()
         lay.addWidget(button(self.t("check_base"), on_click=self.on_check_base))
         self.base_msg = label("", "Message", wrap=True)
         lay.addWidget(self.base_msg)
@@ -243,10 +259,51 @@ class CalibrationPage(QWidget):
         b = float(np.hypot(c["2"][0] - c["0"][0], c["2"][1] - c["0"][1]))
         self.layout_label.setText(self.t("layout_now", a=f"{a:.1f}", b=f"{b:.1f}"))
 
+    def _sheet_nominal(self):
+        """Outer edge to outer edge, marker 0 to 1 and marker 0 to 2, on the sheet as designed."""
+        sh = BASE_SHEETS[self.s.get("base_sheet")]
+        c, m = sh["base_marker_centers_mm"], sh["marker_size_mm"]
+        return abs(c["1"][0] - c["0"][0]) + m, abs(c["2"][1] - c["0"][1]) + m
+
+    def fill_print_size(self):
+        sheet = self.s.get("base_sheet")
+        ok = sheet in BASE_SHEETS
+        for w in (self.span_x, self.span_y):
+            w.setEnabled(ok)
+        if not ok:
+            self.span_label_x.setText(self.t("print_size_custom"))
+            self.span_label_y.setText("")
+            return
+        nx, ny = self._sheet_nominal()
+        sx, sy = (self.s.get("sheet_scale") or {}).get(sheet, [1.0, 1.0])
+        self.span_label_x.setText(self.t("print_size_x", n=f"{nx:.0f}"))
+        self.span_label_y.setText(self.t("print_size_y", n=f"{ny:.0f}"))
+        self.span_x.setValue(nx * sx)
+        self.span_y.setValue(ny * sy)
+
+    def on_print_size(self):
+        sheet = self.s.get("base_sheet")
+        if sheet not in BASE_SHEETS:
+            return
+        nx, ny = self._sheet_nominal()
+        sx, sy = self.span_x.value() / nx, self.span_y.value() / ny
+        if not (0.9 < sx < 1.1 and 0.9 < sy < 1.1):
+            self._msg(self.base_msg, self.t("err_print_size"), True)
+            return
+        scales = dict(self.s.get("sheet_scale") or {})
+        scales[sheet] = [sx, sy]
+        self.s.data["sheet_scale"] = scales
+        self.s.use_sheet(sheet)
+        self.s.set("plate_zero_scale", None)          # the zero check depends on the base scale
+        self.marker_spin.setValue(float(self.s.get("marker_size_mm")))
+        self.show_layout()
+        self._msg(self.base_msg, self.t("print_size_saved", x=f"{(sx - 1) * 100:+.1f}", y=f"{(sy - 1) * 100:+.1f}"))
+
     def on_sheet_layout(self):
         self.s.use_sheet_layout()
         self.marker_spin.setValue(float(self.s.get("marker_size_mm")))
         self.show_layout()
+        self.fill_print_size()
         self._msg(self.base_msg, "")
 
     def on_learn_layout(self):

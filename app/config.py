@@ -64,7 +64,8 @@ DEFAULTS = {
     },
     "base_sheet": "A4",          # which printed base sheet is in use ("A4", "A3", or "custom" after Learn layout)
     "plate_thickness_mm": 2.0,
-    "plate_zero_scale": None,    # set by the zero check (height card on the empty base); cleared when the lens or sheet changes
+    "plate_zero_scale": None,
+    "sheet_scale": {},           # {"A3": [sx, sy]}: how the printed sheet really came out, from a tape measure    # set by the zero check (height card on the empty base); cleared when the lens or sheet changes
     "export_folder": "",
     "save_json": True,
 }
@@ -130,9 +131,16 @@ class Settings:
         sheet = self.data.get("base_sheet")
         self.use_sheet(sheet if sheet in BASE_SHEETS else "A4")
 
+    def sheet_values(self, name):
+        """Marker size and centres of a printed sheet, scaled to how it really printed."""
+        sx, sy = (self.data.get("sheet_scale") or {}).get(name, [1.0, 1.0])
+        sh = BASE_SHEETS[name]
+        return {"marker_size_mm": sh["marker_size_mm"] * (sx + sy) / 2.0,
+                "base_marker_centers_mm": {k: [c[0] * sx, c[1] * sy] for k, c in sh["base_marker_centers_mm"].items()}}
+
     def use_sheet(self, name):
         """Switch to one of the printed base sheets (BASE_SHEETS)."""
-        for k, v in BASE_SHEETS[name].items():
+        for k, v in self.sheet_values(name).items():
             self.data[k] = deepcopy(v)
         if self.data.get("base_sheet") != name:
             self.data["plate_zero_scale"] = None
