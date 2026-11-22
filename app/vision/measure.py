@@ -148,16 +148,11 @@ def simplify(points_mm, tol_mm=0.3):
     return approx.reshape(-1, 2)
 
 
-def measure_outline(frame_on, frame_off, base_map, height_mm=None, fallback_camera_height_mm=300.0, zero_scale=None):
+def measure_outline(frame_on, frame_off, base_map, height_mm=None, fallback_camera_height_mm=300.0):
     img = light_only(frame_on, frame_off) if frame_off is not None else frame_on
     contour_px = find_item_contour(img, base_map)
     pts_mm = base_map.to_mm(contour_px)
     pts_mm = correct_for_height(pts_mm, base_map, height_mm, fallback_camera_height_mm)
-    if zero_scale:
-        # the height card on the empty base showed how much bigger than real things look in the
-        # middle of the picture (lens correction, printing): take that back out
-        c = pts_mm.mean(axis=0)
-        pts_mm = (pts_mm - c) / float(zero_scale) + c
     length, width = size_from_outline(pts_mm)
     if not (np.isfinite(length) and np.isfinite(width)) or length > 1000:
         raise MeasureError("err_layout")
@@ -190,7 +185,9 @@ def plate_scale(frame_bgr, base_map, settings):
 
 def zero_scale(frame_bgr, base_map, settings, fallback_camera_height_mm=300.0):
     """With the card lying on the empty base: the extra enlargement that is not height
-    (lens correction near the middle, printing). 1.0 = none. Saved as plate_zero_scale."""
+    (lens correction near the middle, the card or the sheet printed off size). 1.0 = none.
+    Saved as plate_zero_scale and used for heights only: it cannot tell a card printed small
+    from a base printed big, so it must not touch the outline size."""
     k = plate_scale(frame_bgr, base_map, settings)
     H = base_map.camera_height_mm or fallback_camera_height_mm
     t = float(settings.get("plate_thickness_mm"))

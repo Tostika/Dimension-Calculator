@@ -4,6 +4,7 @@ import numpy as np
 from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QDoubleSpinBox, QFrame, QGridLayout, QHBoxLayout, QVBoxLayout, QWidget
 
+from ..config import DEFAULTS
 from ..vision import measure
 from ..vision.calibration import BOARD_INNER, CalibrationSession
 from ..vision.markers import BASE_IDS, detect, learn_layout
@@ -320,11 +321,27 @@ class CalibrationPage(QWidget):
         self.plate_spin.setValue(float(self.s.get("plate_thickness_mm")))
         self.plate_spin.valueChanged.connect(lambda v: self.s.set("plate_thickness_mm", float(v)))
         lay.addWidget(self.plate_spin)
+        lay.addWidget(label(self.t("card_marker_size")))
+        self.plate_marker_spin = QDoubleSpinBox()
+        self.plate_marker_spin.setRange(10, 60)
+        self.plate_marker_spin.setDecimals(1)
+        self.plate_marker_spin.setSingleStep(0.1)
+        self.plate_marker_spin.setValue(float(self.s.get("plate_marker_size_mm")))
+        self.plate_marker_spin.valueChanged.connect(self.on_plate_marker_size)
+        lay.addWidget(self.plate_marker_spin)
+        lay.addWidget(label(self.t("card_marker_hint"), "Hint", wrap=True))
         lay.addWidget(button(self.t("zero_check"), on_click=self.on_zero))
         self.plate_msg = label("", "Message", wrap=True)
         lay.addWidget(self.plate_msg)
         lay.addStretch(1)
         return c
+
+    def on_plate_marker_size(self, v):
+        """A card printed off size: everything on it scales with the marker the user measured."""
+        f = float(v) / float(DEFAULTS["plate_marker_size_mm"])
+        self.s.data["plate_marker_size_mm"] = float(v)
+        self.s.set("plate_marker_centers_mm",
+                   {k: [c[0] * f, c[1] * f] for k, c in DEFAULTS["plate_marker_centers_mm"].items()})
 
     def on_zero(self):
         cam, s, store = self.main.camera, self.s, self.main.calib_store
@@ -344,7 +361,10 @@ class CalibrationPage(QWidget):
 
         def done(r):
             before, c = r
-            self._msg(self.plate_msg, self.t("zero_saved", h=f"{before:.1f}", pct=f"{(c - 1) * 100:+.1f}"))
+            msg = self.t("zero_saved", h=f"{before:.1f}")
+            if abs(c - 1) > 0.02:
+                msg += " " + self.t("zero_off_size", pct=f"{(c - 1) * 100:+.1f}")
+            self._msg(self.plate_msg, msg)
 
         def fail(e):
             self._msg(self.plate_msg, self._err_text(e), True)
