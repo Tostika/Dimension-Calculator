@@ -5,6 +5,7 @@ import cv2
 import numpy as np
 
 from ..config import BASE_SHEETS
+from . import outline
 from .markers import BASE_IDS, PLATE_IDS, BaseMap, detect, square_corners_mm, undistort_px
 
 
@@ -93,38 +94,6 @@ def light_only(frame_on, frame_off):
     return cv2.convertScaleAbs(diff, alpha=min(4.0, 230.0 / peak))
 
 
-def find_item_contour(frame_bgr, base_map):
-    """Segments the item against the base sheet. Returns the outer contour in pixels."""
-    h, w = frame_bgr.shape[:2]
-    region = np.zeros((h, w), np.uint8)
-    cv2.fillPoly(region, [base_map.region_px().astype(np.int32)], 255)
-    for c in base_map.found.values():            # cut the markers out, with a margin
-        cc = c.mean(axis=0)
-        grown = (c - cc) * 1.35 + cc
-        cv2.fillPoly(region, [grown.astype(np.int32)], 0)
-
-    lab = cv2.cvtColor(cv2.GaussianBlur(frame_bgr, (5, 5), 0), cv2.COLOR_BGR2LAB).astype(np.float32)
-    base_color = np.median(lab[region > 0], axis=0)
-    d = lab - base_color
-    d[..., 0] *= 0.5                               # brightness counts less: soft shadows change it most
-    dist = np.sqrt((d ** 2).sum(axis=2))
-    dist[region == 0] = 0
-    dist8 = cv2.normalize(dist, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
-    vals = dist8[region > 0].reshape(-1, 1)
-    thr, _ = cv2.threshold(vals, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-    mask = np.where((dist8 > max(thr, 25)) & (region > 0), 255, 0).astype(np.uint8)
-
-    k = max(3, int(round(1.0 / base_map.mm_per_px)) | 1)   # about 1 mm
-    mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (k, k)))
-    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3 * k, 3 * k)))
-    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
-    min_area_px = 300.0 / (base_map.mm_per_px ** 2)     # ignore anything smaller than 3 cm²
-    contours = [c for c in contours if cv2.contourArea(c) > min_area_px]
-    if not contours:
-        raise MeasureError("err_no_item")
-    return max(contours, key=cv2.contourArea).reshape(-1, 2).astype(np.float32)
-
-
 def correct_for_height(points_mm, base_map, height_mm, fallback_camera_height_mm):
     """The top edge of an item sits closer to the camera, so it looks bigger. Shrink it back."""
     if not height_mm:
@@ -138,25 +107,32 @@ def correct_for_height(points_mm, base_map, height_mm, fallback_camera_height_mm
     return c + (points_mm - c) * k
 
 
-def size_from_outline(points_mm):
-    (_, _), (a, b), _ = cv2.minAreaRect(points_mm.astype(np.float32))
-    return max(a, b), min(a, b)
-
-
 def simplify(points_mm, tol_mm=0.3):
     approx = cv2.approxPolyDP(points_mm.reshape(-1, 1, 2).astype(np.float32), tol_mm, True)
     return approx.reshape(-1, 2)
 
 
 def measure_outline(frame_on, frame_off, base_map, height_mm=None, fallback_camera_height_mm=300.0):
+    """Length, width and outline of the item, with the edge finder of the team's measure.py
+    (straight top view, paper model, sub-pixel edge snapping)."""
     img = light_only(frame_on, frame_off) if frame_off is not None else frame_on
-    contour_px = find_item_contour(img, base_map)
-    pts_mm = base_map.to_mm(contour_px)
+    corners = base_map.base_pts.reshape(-1, 4, 2)
+    centers = {str(i): corners[k].mean(axis=0).tolist() for k, i in enumerate(BASE_IDS)}
+    size = float(np.mean(np.linalg.norm(corners[:, 1] - corners[:, 0], axis=1)))
+    top, (x0, y0), usable = outline.top_view(img, base_map, centers, size)
+    try:
+        out_px, _, _ = outline.find_item(top, usable)
+    except outline.NoItem:
+        raise MeasureError("err_no_item")
+    pts_mm = out_px / outline.PX_PER_MM + np.array([x0, y0], np.float32)
     pts_mm = correct_for_height(pts_mm, base_map, height_mm, fallback_camera_height_mm)
-    length, width = size_from_outline(pts_mm)
+    (_, _), (a, b), _ = outline.orient_rect(pts_mm)
+    length, width = max(a, b), min(a, b)
     if not (np.isfinite(length) and np.isfinite(width)) or length > 1000:
         raise MeasureError("err_layout")
-    return {"contour_px": contour_px, "outline_mm": simplify(pts_mm), "length": float(length), "width": float(width)}
+    contour_px = outline.mm_to_camera_px(out_px / outline.PX_PER_MM + np.array([x0, y0]), base_map)
+    return {"contour_px": contour_px.astype(np.float32), "outline_mm": simplify(pts_mm),
+            "length": float(length), "width": float(width)}
 
 
 def _plate(frame_bgr, settings):
