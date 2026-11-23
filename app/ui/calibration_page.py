@@ -1,4 +1,6 @@
 """Calibration tab: lens (once), base markers, height card."""
+import time
+
 import cv2
 import numpy as np
 from PySide6.QtCore import QTimer
@@ -6,7 +8,7 @@ from PySide6.QtWidgets import QDoubleSpinBox, QFrame, QGridLayout, QHBoxLayout, 
 
 from ..config import BASE_SHEETS, DEFAULTS
 from ..vision import measure
-from ..vision.calibration import BOARD_INNER, CalibrationSession
+from ..vision.calibration import BOARD_INNER, CalibrationSession, focal_from_base
 from ..vision.markers import BASE_IDS, detect, learn_layout
 from .common import CameraView, button, card, label, repolish, run_task
 
@@ -57,6 +59,8 @@ class CalibrationPage(QWidget):
         self.cal_view.offline_title = self.t("no_camera")
         self.cal_view.offline_hint = self.t("no_camera_hint")
         sl.addWidget(self.cal_view, 1)
+        self.cover_hint = label("", "Hint", wrap=True)
+        sl.addWidget(self.cover_hint)
         row = QHBoxLayout()
         self.add_btn = button("", "Primary", self.on_add_frame)
         self.finish_btn = button(self.t("finish"), on_click=self.on_finish)
@@ -99,17 +103,27 @@ class CalibrationPage(QWidget):
         cam = self.main.camera
         self._lens_message("")
 
-        def job():
-            return cam.autofocus_then_lock()
+        s = self.s
 
-        def done(focus):
-            self.session, self.session_focus = CalibrationSession(), focus
+        def job():
+            focus = cam.autofocus_then_lock()
+            frame = cam.wait_new_frames(3)
+            try:
+                bm = measure.build_base_map(frame, s, None)
+            except measure.MeasureError:
+                raise measure.MeasureError("err_cal_need_base")
+            return focus, focal_from_base(bm, cam.frame_size(), s.camera_height_mm())
+
+        def done(r):
+            focus, f_px = r
+            self.session, self.session_focus = CalibrationSession(f_px), focus
+            self._last_auto = 0.0
             self.session_box.show()
             self.session_title.setText(f"{self.t('camera_height')}: {self.s.get('camera_height_cm')} {self.t('cm')}")
             self._update_session()
             self.fill_lens_rows()
 
-        run_task(job, done, lambda e: self._lens_message(str(e), True))
+        run_task(job, done, lambda e: self._lens_message(self._err_text(e), True))
 
     def on_preview(self, qimage):
         if self.session is not None and self.main.camera_ok:
@@ -132,6 +146,8 @@ class CalibrationPage(QWidget):
 
         def done(pts):
             self._board_busy = False
+            if pts and time.time() - getattr(self, "_last_auto", 0.0) > 1.2:
+                self._auto_add()
             self.cal_view.dots = pts
             self.cal_view.right_badge = self.t("board_found") if pts else self.t("board_searching")
             self.cal_view.update()
@@ -158,9 +174,34 @@ class CalibrationPage(QWidget):
     def _update_session(self):
         n = self.session.count if self.session else 0
         self.add_btn.setText(self.t("take_photo", n=n))
-        self.finish_btn.setEnabled(n >= 10)
+        missing = self.session.missing_corners() if self.session else []
+        self.finish_btn.setEnabled(n >= 10 and not missing)
+        if missing:
+            where = ", ".join(self.t("corner_" + k) for k in missing)
+            self.cover_hint.setText(self.t("cal_missing", where=where))
+        else:
+            self.cover_hint.setText(self.t("cal_corners_ok") if n < 10 else self.t("cal_ready"))
         self.cal_view.ghosts = self._ghosts()
         self.cal_view.update()
+
+    def _auto_add(self):
+        """Adds the current full frame by itself when the board lies somewhere new."""
+        frame, _ = self.main.camera.latest()
+        sess = self.session
+        if frame is None or sess is None or getattr(self, "_adding", False):
+            return
+        self._adding = True
+        self._last_auto = time.time()
+
+        def done(ok):
+            self._adding = False
+            if ok:
+                self._update_session()
+
+        def fail(_):
+            self._adding = False
+
+        run_task(lambda: sess.add(frame, only_new=True), done, fail)
 
     def on_add_frame(self):
         frame, _ = self.main.camera.latest()
@@ -183,9 +224,25 @@ class CalibrationPage(QWidget):
         self.add_btn.setEnabled(False)
         self.finish_btn.setEnabled(False)
 
+        cam, s = self.main.camera, self.s
+
         def job():
             calib = sess.solve()
             calib["focus"] = focus
+            # check against the base: with the new correction the four markers must fit their
+            # layout at least as well as without it
+            frame = cam.wait_new_frames(2)
+            try:
+                raw = measure.build_base_map(frame, s, None)
+            except measure.MeasureError:
+                raw = None                    # base markers hidden under the board: nothing to compare with
+            if raw is not None:
+                try:
+                    new = measure.build_base_map(frame, s, calib)
+                except measure.MeasureError:
+                    raise measure.MeasureError("err_cal_worse")
+                if new.layout_error_mm > max(raw.layout_error_mm, 0.3) * 1.5:
+                    raise measure.MeasureError("err_cal_worse")
             self.main.calib_store.set_lens(calib)
             self.s.set("plate_zero_scale", None)          # the zero check depends on the lens correction
             return calib
@@ -197,7 +254,12 @@ class CalibrationPage(QWidget):
             self.on_cancel()
             self._lens_message(self.t("cal_done", err=f"{calib['rms']:.2f}"))
 
-        run_task(job, done, lambda e: self._lens_message(str(e), True))
+        def fail(e):
+            self.add_btn.setEnabled(True)
+            self._update_session()
+            self._lens_message(self._err_text(e), True)
+
+        run_task(job, done, fail)
 
     def on_cancel(self):
         self.session = None

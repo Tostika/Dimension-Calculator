@@ -71,6 +71,28 @@ def run():
         h = measure.measure_height(fp, bm, app, 400.0)
         print(f"[base {base_f:.0%}, card {card_f:.0%}, lens off, after zero check] H={h:.2f} (true 0.80)")
         ok &= abs(h - 0.8) < 0.5
+    # a lens that bends the picture (like the real C960): calibrate with the board lying flat
+    # only, focal length from the base markers, then the bank card must come out right
+    from app.vision.calibration import CalibrationSession, focal_from_base
+    st3 = S(BASE_SHEETS["A3"])
+    bent = Scene(settings=st3, dist=[-0.10, 0.03, 0, 0, 0])
+    Hc = 400.0
+    raw_bm = measure.build_base_map(bent.render(with_item=False, cam_h=Hc), st3, None)
+    sess = CalibrationSession(focal_from_base(raw_bm, (bent.W, bent.H), Hc))
+    spots = [(82, 68), (218, 68), (82, 122), (218, 122), (150, 68), (150, 122), (82, 95), (218, 95)] + [(150, 95)] * 4
+    for i, (x, y) in enumerate(spots):
+        sess.add(bent.render_board((x, y), [0, 0, 0, 0, 8, -8, 15, -15, 0, 30, 60, -30][i], cam_h=Hc, noise_seed=i),
+                 only_new=True)
+    cal = sess.solve()
+    fc = bent.render(item_h=0.76, item=(85.6, 53.98), cam_h=Hc)
+    r_raw = measure.measure_outline(fc, None, measure.build_base_map(fc, st3, None), 0.76, Hc)
+    bm_c = measure.build_base_map(fc, st3, cal)
+    r_cal = measure.measure_outline(fc, None, bm_c, 0.76, Hc)
+    print(f"[bent lens] no correction {r_raw['length']:.2f} x {r_raw['width']:.2f}; after flat-board calibration "
+          f"({sess.count} views, corners missing {sess.missing_corners()}, k1={cal['dist'][0]:.3f}) "
+          f"{r_cal['length']:.2f} x {r_cal['width']:.2f}, camera height {bm_c.camera_height_mm:.0f} (true 400)")
+    ok &= abs(r_cal["length"] - 85.6) < 0.5 and abs(r_cal["width"] - 53.98) < 0.5
+    ok &= abs(bm_c.camera_height_mm - Hc) < 20 and not sess.missing_corners()
     print("PASS" if ok else "FAIL")
     return ok
 

@@ -9,8 +9,10 @@ _DICT = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_50)
 
 
 class Scene:
-    def __init__(self, width=3840, height=2160, fx=None, tex_px_per_mm=8, settings=None):
+    def __init__(self, width=3840, height=2160, fx=None, tex_px_per_mm=8, settings=None, dist=None):
         self.W, self.H = width, height
+        self.dist = None if dist is None else np.asarray(dist, np.float64)   # lens bending of the virtual camera
+        self._dmap = None
         fx = fx or 3392.0 * width / 3840.0          # C960 4K at its widest view (66 deg diagonal)
         self.K = np.array([[fx, 0, width / 2], [0, fx, height / 2], [0, 0, 1]], np.float64)
         self.TEX = tex_px_per_mm
@@ -65,6 +67,56 @@ class Scene:
                 x0, y0 = int((c[0] + 50 - ps / 2) * T), int((c[1] + 35 - ps / 2) * T)
                 card[y0:y0 + m.shape[0], x0:x0 + m.shape[1]] = m
             self._paste(frame, card, self._hom(M, -top, (item_center[0] - 50, item_center[1] - 35)))
+        return self._finish(frame, light, noise_seed)
+
+    def _distort(self, frame):
+        """Bends the pinhole picture the way a real lens with self.dist would."""
+        if self.dist is None:
+            return frame
+        if self._dmap is None:
+            step = 4
+            ys, xs = np.mgrid[0:self.H + step:step, 0:self.W + step:step].astype(np.float32)
+            pts = np.stack([xs.ravel(), ys.ravel()], 1).reshape(-1, 1, 2)
+            und = cv2.undistortPoints(pts, self.K, self.dist, P=self.K).reshape(xs.shape + (2,))
+            mx = cv2.resize(und[..., 0], (self.W, self.H), interpolation=cv2.INTER_LINEAR)
+            my = cv2.resize(und[..., 1], (self.W, self.H), interpolation=cv2.INTER_LINEAR)
+            # the grid was every 4 px up to W+4: rescale so pixel i maps to grid point i/4
+            gx = np.arange(self.W, dtype=np.float32) / step
+            gy = np.arange(self.H, dtype=np.float32) / step
+            GX, GY = np.meshgrid(gx, gy)
+            mx = cv2.remap(und[..., 0], GX, GY, cv2.INTER_LINEAR)
+            my = cv2.remap(und[..., 1], GX, GY, cv2.INTER_LINEAR)
+            self._dmap = (mx, my)
+        return cv2.remap(frame, self._dmap[0], self._dmap[1], cv2.INTER_LINEAR, borderValue=(40, 40, 40))
+
+    def render_board(self, center_mm, angle_deg=0.0, cam_xy=None, cam_h=300.0, squares=(10, 7), square_mm=25.0,
+                     noise_seed=1):
+        """The printed checkerboard lying flat on the (empty) base."""
+        T = self.TEX
+        cs = list(self.get("base_marker_centers_mm").values())
+        mid = (sum(c[0] for c in cs) / len(cs), sum(c[1] for c in cs) / len(cs))
+        M = self._P(cam_xy or mid, cam_h)
+        frame = np.full((self.H, self.W, 3), 40, np.uint8)
+        base = np.full((280 * T, 380 * T, 3), 235, np.uint8)
+        self._paste(frame, base, self._hom(M, 0, (-40, -40)))
+        q = int(square_mm * T)
+        bw, bh = squares[0] * q, squares[1] * q
+        tex = np.full((bh + 2 * q, bw + 2 * q, 3), 255, np.uint8)
+        for r in range(squares[1]):
+            for c in range(squares[0]):
+                if (r + c) % 2 == 0:
+                    tex[q + r * q:q + (r + 1) * q, q + c * q:q + (c + 1) * q] = 0
+        a = np.radians(angle_deg)
+        w, h = tex.shape[1] / T, tex.shape[0] / T
+        # texture px -> board mm (centred) -> rotated -> base mm
+        S = np.array([[1 / T, 0, -w / 2], [0, 1 / T, -h / 2], [0, 0, 1]])
+        Rm = np.array([[np.cos(a), -np.sin(a), center_mm[0]], [np.sin(a), np.cos(a), center_mm[1]], [0, 0, 1]])
+        P = M[:, [0, 1, 3]] + np.outer(M[:, 2], [0, 0, -0.3])
+        self._paste(frame, tex, P @ Rm @ S)
+        return self._finish(frame, 1.0, noise_seed)
+
+    def _finish(self, frame, light, noise_seed):
+        frame = self._distort(frame)
         f = frame.astype(np.float32) * light
         if noise_seed is not None:
             f += np.random.default_rng(noise_seed).normal(0, 2, frame.shape)
